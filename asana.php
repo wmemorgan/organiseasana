@@ -38,18 +38,55 @@ function asanaRequest($methodPath, $httpMethod = 'GET', $body = null)
 	$result = json_decode($data, true);
 	return $result;
 }
+
+function p($text) {
+	print "<p>" . $text . "</p>\n";
+	flush();
+}
+
+function pre($o) {
+	print "<pre>";
+	print_r($o);
+	print "</pre>\n";
+	flush();
+}
+ 
+function createTag($tagName, $workspaceId, $newTaskId) {
+ 	p("Creating tag: " . $tagName);
+
+ 	// Create new tag
+    $data = array('data' => array('name' => $tagName));
+    $result = asanaRequest("workspaces/$workspaceId/tags", "POST", $data);
+ 
+ 	// Assign tag to task
+    $data = array("data" => array("tag" => $result["data"]["id"]));
+    $result = asanaRequest("tasks/$newTaskId/addTag", "POST", $data);
+ 
+}
  
 function createTask($workspaceId, $projectId, $task)
 {
+	p("Creating task: " . $task['name']);
+
+	// Set projects
+	$task['projects'] = array($projectId);
+
+	// Create new task
 	$data = array('data' => $task);
 	$result = asanaRequest("workspaces/$workspaceId/tasks", 'POST', $data);
+
+	// Check result
 	if ($result['data'])
 	{
+		// Display result
+		global $DEBUG;
+		if ($DEBUG) pre($result);
+
 		$newTask = $result['data'];
-		$newTaskId = $newTask['id'];
-		$data = array('data' => array('project' => $projectId));
-		$result = asanaRequest("tasks/$newTaskId/addProject", 'POST', $data);
 		return $newTask;
+	}
+	else {
+		p("Error creating task: "); pre($result['errors']);
 	}
 	
 	return $result;
@@ -57,6 +94,7 @@ function createTask($workspaceId, $projectId, $task)
 
 function createProject($workspaceId, $name)
 {
+	p("Creating project: " . $name);
 	$data = array('data' => array('name' => $name));
 	$result = asanaRequest("workspaces/$workspaceId/projects", 'POST', $data);
 	if ($result['data'])
@@ -87,7 +125,7 @@ function copySubtasks($taskId, $newTaskId, $failsafe) {
             $subtaskId = $subtask['id'];
  
             // get data for subtask
-            $result = asanaRequest("tasks/$subtaskId?opt_fields=name,due_on,assignee_status,notes,assignee");
+            $result = asanaRequest("tasks/$subtaskId?opt_fields=assignee,assignee_status,completed,due_on,name,notes");
             $newSubtask = $result['data'];
             unset($newSubtask["id"]);
             $newSubtask["assignee"] = $newSubtask["assignee"]["id"];
@@ -152,7 +190,7 @@ function copyTags ($taskId, $newTaskId, $newworkspaceId) {
  
             if (!$tagisset) {
      
-                print "tag does not exist in workspace";
+                p("tag does not exist in workspace");
                 $data = array('data' => array('name' => $tagName));
                 $result = asanaRequest("workspaces/$newworkspaceId/tags", "POST", $data);
                 $tagId = $result["data"]["id"];
@@ -165,22 +203,12 @@ function copyTags ($taskId, $newTaskId, $newworkspaceId) {
         }
     }
 }
- 
-function createTag($tagName, $workspaceId, $newTaskId) {
- 
-    $data = array('data' => array('name' => $tagName));
-    $result = asanaRequest("workspaces/$workspaceId/tags", "POST", $data);
- 
-    $data = array("data" => array("tag" => $result["data"]["id"]));
-    $result = asanaRequest("tasks/$newTaskId/addTag", "POST", $data);
- 
-}
 
 function getWorkspaces() {
 	$result = asanaRequest("workspaces");
 	if (!$result['data'])
 	{
-        Print "Error Loading Workspaces!";
+        p("Error Loading Workspaces!");
 		return;
 	}
 
@@ -191,7 +219,7 @@ function getWorkspace($workspaceId) {
 	$result = asanaRequest("workspaces/$workspaceId");
 	if (!$result['data'])
 	{
-        Print "Error Loading Workspace!";
+        p("Error Loading Workspace!");
 		return;
 	}
 
@@ -202,7 +230,7 @@ function getProjects($workspaceId) {
 	$result = asanaRequest("workspaces/$workspaceId/projects");
 	if (!$result['data'])
 	{
-        Print "Error Loading Projects!";
+        p("Error Loading Projects!");
 		return;
 	}
 
@@ -213,7 +241,7 @@ function getProject($projectId) {
 	$result = asanaRequest("projects/$projectId");
 	if (!$result['data'])
 	{
-        Print "Error Loading Projects!";
+        p("Error Loading Project!");
 		return;
 	}
 
@@ -226,13 +254,13 @@ function copyTasks($fromProjectId, $toProjectId)
 	$result = asanaRequest("projects/$toProjectId");
 	if (!$result['data'])
 	{
-        Print "Error Loading Project!";
+        p("Error Loading Project!");
 		return;
 	}
     $workspaceId = $result['data']['workspace']['id'];
 	
     // GET Project tasks
-    $result = asanaRequest("projects/$fromProjectId/tasks?opt_fields=name,due_on,assignee_status,notes,assignee");
+    $result = asanaRequest("projects/$fromProjectId/tasks?opt_fields=assignee,assignee_status,completed,due_on,name,notes");
 	$tasks = $result['data'];
 	
     // copy Tasks

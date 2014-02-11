@@ -1,17 +1,38 @@
 <?php 
+date_default_timezone_set("UTC");
 
+global $DEBUG;
+$DEBUG = false;
+if (isset($_COOKIE["debug"]))
+	$DEBUG = $_COOKIE["debug"];
+if (isset($_GET["debug"]))
+	$DEBUG = $_GET["debug"];
+
+if ($DEBUG) {
+	setcookie("debug", 1);
+}
 
 global $apiKey;
 $apiKey = "";
 
-if ($_POST["apiKey"])
+// Read parameters
+if (isset($_COOKIE["apiKey"]))
+	$apiKey = $_COOKIE["apiKey"];
+if (isset($_POST["apiKey"]))
 	$apiKey = $_POST["apiKey"];
-if ($_POST["workspace"])
+if (isset($_POST["storeKey"]))
+	$storeKey = $_POST["storeKey"];
+if (isset($_POST["workspace"]))
 	$workspaceId = $_POST["workspace"];
-if ($_POST["copyTo"])
+if (isset($_POST["copyTo"]))
 	$copyTo = $_POST["copyTo"];
-if ($_POST["projects"])
+if (isset($_POST["projects"]))
 	$projects = $_POST["projects"];
+
+// Store for 90 days
+if ($apiKey && $storeKey) {
+	setcookie("apiKey", $apiKey, time()+60*60*24*90);
+}
 
 include "asana.php";
 
@@ -43,10 +64,19 @@ include "asana.php";
 			<form method="POST">
 				<p>
 					<label>API Key: <input type="text" name="apiKey" value="<?php echo $apiKey ?>"></label>
-					<button type="submit">Submit</button>
+					<button type="submit">Submit</button><br>
+					<label><input type="checkbox" name="storeKey" value="1"> Remember key (stores cookie)</label>
 				</p>
 
+				<p>
+					<a class="btn btn-default" href=".">Restart</a>
+				</p>
+				<?php if($DEBUG) { ?>
+				<h4>DEBUG Mode is ON</h4>
+				<?php } ?>
+
 				<?php if ($apiKey) {
+
 
 					// Run the copy operation
 					if ($copyTo && $projects) {
@@ -59,20 +89,26 @@ include "asana.php";
 
 							// Check for an existing project in the target workspace
 							$targetProjects = getProjects($copyTo);
+							if ($DEBUG) pre($targetProjects);
+
 							$count = 2;
-							for ($j = count($targetProjects) - 1; $j >= 0; $j--)
-							{
-								if (strcmp($targetProjects[$j]['name'], $targetProjectName) == 0) {
-									$targetProjectName = $project['name'] . $count++;
-									$j = count($projects);
+							$found = false;
+							do {
+								$found = false;
+								for ($j = 0; $j < count($targetProjects); $j++) {
+									if (strcmp($targetProjects[$j]['name'], $targetProjectName) == 0) {
+										$targetProjectName = $project['name'] . ' ' . $count++;
+										$found = true;
+										break;
+									}
 								}
 							}
+							while ($found == true && $count < 100);
 
 							// Create target project
-							$targetProject = createProject($copyTo, $targetProjectName);
-							
-							echo '<p>Copying ' . $project['name'] . ' to ' . $workspace['name'] . '/' . $targetProjectName . '</p>';
+							echo '<h4>Copying ' . $project['name'] . ' to ' . $workspace['name'] . '/' . $targetProjectName . '</h4>';
 							flush();
+							$targetProject = createProject($copyTo, $targetProjectName);
 
 							// Run copy
 							copyTasks($project['id'], $targetProject['id']);
@@ -89,7 +125,7 @@ include "asana.php";
 						for ($i = count($workspaces) - 1; $i >= 0; $i--)
 						{
 							$workspace = $workspaces[$i];
-							echo '<button type="submit" name="workspace" value="' . $workspace['id'] . '">' . $workspace['name'] . '</button>';
+							echo '<button class="btn btn-default" type="submit" name="workspace" value="' . $workspace['id'] . '">' . $workspace['name'] . '</button>';
 						}
 						echo '</p>';
 
@@ -107,7 +143,7 @@ include "asana.php";
 							for ($i = count($workspaces) - 1; $i >= 0; $i--)
 							{
 								$workspace = $workspaces[$i];
-								echo '<button type="submit" name="copyTo" value="' . $workspace['id'] . '">' . $workspace['name'] . '</button><br>';
+								echo '<button class="btn btn-default" type="submit" name="copyTo" value="' . $workspace['id'] . '">' . $workspace['name'] . '</button><br>';
 							}
 							echo '</td></tr></table>';
 						}
@@ -121,7 +157,7 @@ include "asana.php";
 				<p>Source code for this tool can be found at <a href="https://bitbucket.org/mikehouston/organiseasana">https://bitbucket.org/mikehouston/organiseasana</a></p>
 				<p>The implementation of the copy operation is based on <a href="https://gist.github.com/AWeg/5814427">https://gist.github.com/AWeg/5814427</a></p>
 				<h3>Privacy</h3>
-				<p>No data is stored on the server - the API key is not retained between calls. No cookies are stored.</p>
+				<p>No data is stored on the server - the API key is not retained between calls. No cookies are stored, unless you request the API key to be remembered.</p>
 				<h3>No Warranty</h3>
 				<p>This tool does not delete any data, and will not modifiy any existing projects (a new copy is made each time)</p>
 				<p>No warranty is made however - use at your own risk</p>
