@@ -8,6 +8,7 @@
 function asanaRequest($methodPath, $httpMethod = 'GET', $body = null)
 {
 	global $apiKey;
+	global $DEBUG;
 
 	$url = "https://app.asana.com/api/1.0/$methodPath";
 	$ch = curl_init();
@@ -21,21 +22,26 @@ function asanaRequest($methodPath, $httpMethod = 'GET', $body = null)
     curl_setopt ($ch, CURLOPT_SSL_VERIFYHOST, 0);
     curl_setopt ($ch, CURLOPT_SSL_VERIFYPEER, 0);
 	
-	if ($body)
+	$jbody = $body;
+	if ($jbody)
 	{
-		if (!is_string($body))
+		if (!is_string($jbody))
 		{
-			$body = json_encode($body);
+			$jbody = json_encode($body);
 		}
 		curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: application/json'));
-		curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
+		curl_setopt($ch, CURLOPT_POSTFIELDS, $jbody);
 	}
 	
 	$data = curl_exec($ch);
-    	$error = curl_error($ch);
+	$error = curl_error($ch);
 	curl_close($ch);
     
 	$result = json_decode($data, true);
+
+	if ($DEBUG >= 2) {
+		pre(array('request' => $body, 'response' => $result), "$httpMethod " . $url);
+	}
 	return $result;
 }
 
@@ -44,11 +50,18 @@ function p($text) {
 	flush();
 }
 
-function pre($o) {
+function pre($o, $title = false, $style = 'info') {
+	print '<div class="bs-callout bs-callout-' . $style . '">';
+	if ($title)
+		print "<h4>$title</h4>";
 	print "<pre>";
-	print_r($o);
-	print "</pre>\n";
+	print(json_encode($o, JSON_PRETTY_PRINT));
+	print "</pre></div>\n";
 	flush();
+}
+
+function isError($result) {
+	return isset($result['errors']) || !isset($result['data']);
 }
  
 function createTag($tagName, $workspaceId, $newTaskId) {
@@ -76,7 +89,7 @@ function createTask($workspaceId, $projectId, $task)
 	$result = asanaRequest("workspaces/$workspaceId/tasks", 'POST', $data);
 
 	// Check result
-	if ($result['data'])
+	if (!isError($result))
 	{
 		// Display result
 		global $DEBUG;
@@ -86,21 +99,29 @@ function createTask($workspaceId, $projectId, $task)
 		return $newTask;
 	}
 	else {
-		p("Error creating task: "); pre($result['errors']);
+		pre($result, "Error creating task", 'danger');
 	}
 	
 	return $result;
 }
 
-function createProject($workspaceId, $name)
+function createProject($workspaceId, $name, $teamId)
 {
 	p("Creating project: " . $name);
 	$data = array('data' => array('name' => $name));
-	$result = asanaRequest("workspaces/$workspaceId/projects", 'POST', $data);
-	if ($result['data'])
+	$data['data']['workspace'] = $workspaceId;
+	if ($teamId)
+		$data['data']['team'] = $teamId;
+	
+	$result = asanaRequest("projects", 'POST', $data);
+
+	if (!isError($result))
 	{
 		$newProject = $result['data'];
 		return $newProject;
+	}
+	else {
+		pre($result, "Error creating project!", 'danger');
 	}
 	
 	return $result;
@@ -167,7 +188,8 @@ function copyTags ($taskId, $newTaskId, $newworkspaceId) {
     // GET Tags
     $result = asanaRequest("tasks/$taskId/tags");
     
-    if($result["data"]){ // are there any tags?
+    if (!isError($result)) 
+    { 	// are there any tags?
         $tags = $result["data"];
         for ($i = count ($tags) - 1; $i >= 0; $i--) {
            
@@ -206,9 +228,9 @@ function copyTags ($taskId, $newTaskId, $newworkspaceId) {
 
 function getWorkspaces() {
 	$result = asanaRequest("workspaces");
-	if (!$result['data'])
+	if (isError($result))
 	{
-        p("Error Loading Workspaces!");
+        pre($result, "Error Loading Workspaces!", danger);
 		return;
 	}
 
@@ -217,9 +239,31 @@ function getWorkspaces() {
 
 function getWorkspace($workspaceId) {
 	$result = asanaRequest("workspaces/$workspaceId");
-	if (!$result['data'])
+	if (isError($result))
 	{
-        p("Error Loading Workspace!");
+        pre($result, "Error Loading Workspace!", 'danger');
+		return;
+	}
+
+	return $result['data'];
+}
+
+function getTeams($organizationId) {
+	$result = asanaRequest("organizations/$organizationId/teams");
+	if (isError($result))
+	{
+        pre($result, "Error Loading Teams!", 'danger');
+		return;
+	}
+
+	return $result['data'];
+}
+
+function getTeam($organizationId, $teamId) {
+	$result = asanaRequest("teams/$teamId");
+	if (isError($result))
+	{
+        pre($result, "Error Loading Team!", 'danger');
 		return;
 	}
 
@@ -228,9 +272,9 @@ function getWorkspace($workspaceId) {
 
 function getProjects($workspaceId) {
 	$result = asanaRequest("workspaces/$workspaceId/projects");
-	if (!$result['data'])
+	if (isError($result))
 	{
-        p("Error Loading Projects!");
+        pre($result, "Error Loading Projects!", 'danger');
 		return;
 	}
 
@@ -239,9 +283,9 @@ function getProjects($workspaceId) {
 
 function getProject($projectId) {
 	$result = asanaRequest("projects/$projectId");
-	if (!$result['data'])
+	if (isError($result))
 	{
-        p("Error Loading Project!");
+        pre($result, "Error Loading Project!", 'danger');
 		return;
 	}
 
@@ -252,9 +296,9 @@ function copyTasks($fromProjectId, $toProjectId)
 {
     // GET Project
 	$result = asanaRequest("projects/$toProjectId");
-	if (!$result['data'])
+	if (isError($result))
 	{
-        p("Error Loading Project!");
+        pre($result, "Error Loading Project!", 'danger');
 		return;
 	}
     $workspaceId = $result['data']['workspace']['id'];
