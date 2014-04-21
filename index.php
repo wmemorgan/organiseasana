@@ -1,5 +1,6 @@
 <?php 
 date_default_timezone_set("UTC");
+header('Content-Type: text/html; charset=utf-8');
 
 include "asana.php";
 
