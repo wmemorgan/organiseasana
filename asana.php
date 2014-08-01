@@ -64,18 +64,18 @@ function isError($result) {
 	return isset($result['errors']) || !isset($result['data']);
 }
  
-function createTag($tagName, $workspaceId, $newTaskId) {
- 	p("Creating tag: " . $tagName);
-
- 	// Create new tag
-    $data = array('data' => array('name' => $tagName));
-    $result = asanaRequest("workspaces/$workspaceId/tags", "POST", $data);
- 
- 	// Assign tag to task
-    $data = array("data" => array("tag" => $result["data"]["id"]));
-    $result = asanaRequest("tasks/$newTaskId/addTag", "POST", $data);
- 
-}
+// function createTag($tag, $workspaceId, $newTaskId) {
+//  	p("Creating tag: " . $tag->name);
+// 
+//  	// Create new tag
+//     $data = array('data' => $tag);
+//     $result = asanaRequest("workspaces/$workspaceId/tags", "POST", $data);
+//  
+//  	// Assign tag to task
+//     $data = array("data" => array("tag" => $result["data"]["id"]));
+//     $result = asanaRequest("tasks/$newTaskId/addTag", "POST", $data);
+//  
+// }
  
 function createTask($workspaceId, $projectId, $task)
 {
@@ -216,7 +216,11 @@ function copyTags ($taskId, $newTaskId, $newworkspaceId) {
             if (!$tagisset) {
      
                 p("tag does not exist in workspace");
-                $data = array('data' => array('name' => $tagName));
+                unset($tag['created_at']);
+                unset($tag['followers']);
+                $tag['workspace'] = $newworkspaceId;
+                
+                $data = array('data' => $tag);
                 $result = asanaRequest("workspaces/$newworkspaceId/tags", "POST", $data);
                 $tagId = $result["data"]["id"];
  
