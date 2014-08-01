@@ -105,11 +105,14 @@ function createTask($workspaceId, $projectId, $task)
 	return $result;
 }
 
-function createProject($workspaceId, $name, $teamId)
+function createProject($workspaceId, $name, $teamId, $notes)
 {
 	p("Creating project: " . $name);
 	$data = array('data' => array('name' => $name));
-	$data['data']['workspace'] = $workspaceId;
+	if ($workspaceId)
+		$data['data']['workspace'] = $workspaceId;
+	if ($notes)
+		$data['data']['notes'] = $notes;
 	if ($teamId)
 		$data['data']['team'] = $teamId;
 	

@@ -167,6 +167,7 @@ if ($apiKey && $storeKey) {
 						for ($i = count($projects) - 1; $i >= 0; $i--) {
 							$project = getProject($projects[$i]);
 							$targetProjectName = $project['name'];
+							$notes = $project['notes'];
 
 							// Check for an existing project in the target workspace
 							$targetProjects = getProjects($targetWorkspaceId);
@@ -189,7 +190,7 @@ if ($apiKey && $storeKey) {
 							// Create target project
 							echo '<h4>Copying ' . $project['name'] . ' to ' . $targetWorkspace['name'] . $teamName . '/' . $targetProjectName . '</h4>';
 							flush();
-							$targetProject = createProject($targetWorkspaceId, $targetProjectName, $teamId);
+							$targetProject = createProject($targetWorkspaceId, $targetProjectName, $teamId, $notes);
 							$newProjects[] = $targetProject;
 
 							// Run copy
