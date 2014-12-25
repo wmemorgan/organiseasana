@@ -1,4 +1,4 @@
-<?php 
+<?php
 date_default_timezone_set("UTC");
 header('Content-Type: text/html; charset=utf-8');
 
@@ -19,6 +19,12 @@ if ($DEBUG) {
 
 global $apiKey;
 $apiKey = "";
+$storeKey = null;
+$targetWorkspaceId = null;
+$copy = null;
+$workspaceId = null;
+$projects = null;
+$teamId = null;
 
 // Read parameters
 if (isset($_COOKIE["apiKey"]))
@@ -68,7 +74,7 @@ if ($apiKey && $storeKey) {
 
 		<style>
 			form input[type=text] { width: 500px; }
-			
+
 			.bs-callout h4 {
 				margin-top: 0;
 				margin-bottom: 5px;
@@ -144,7 +150,7 @@ if ($apiKey && $storeKey) {
 
 					// Do we have what we need to run a copy?
 					if ($targetWorkspaceId && $projects) {
-						if ($targetWorkspace['is_organization']) {
+						if (isset($targetWorkspace['is_organization']) && $targetWorkspace['is_organization']) {
 							if ($teamId) {
 								$team = getTeam($targetWorkspaceId, $teamId);
 								if ($DEBUG) pre($team, "Team");
@@ -246,7 +252,7 @@ if ($apiKey && $storeKey) {
 									$active = ' active';
 								}
 
-								echo '<label class="btn btn-default' . $active . '"><input type="checkbox" name="projects[]" value="' 
+								echo '<label class="btn btn-default' . $active . '"><input type="checkbox" name="projects[]" value="'
 										. $project['id'] . '"' . $checked . '> ' . $project['name'] . '</label>';
 							}
 							echo '</div>';
@@ -265,7 +271,7 @@ if ($apiKey && $storeKey) {
 								$workspace = $workspaces[$i];
 
 								$type = ' btn-default';
-								if ($workspace['is_organization'])
+								if (isset($workspace['is_organization']) && $workspace['is_organization'])
 									$type = ' btn-warning';
 
 								$active = '';
