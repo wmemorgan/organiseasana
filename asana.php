@@ -88,6 +88,14 @@ function createTask($workspaceId, $projectId, $task)
 	$data = array('data' => $task);
 	$result = asanaRequest("workspaces/$workspaceId/tasks", 'POST', $data);
 
+	// Try to remove assignee if an error is returned
+	// TODO check assignee exists before submitting the request
+	if (isError($result) && isset($task['assignee'])) {
+		unset($task['assignee']);
+		$data = array('data' => $task);
+		$result = asanaRequest("workspaces/$workspaceId/tasks", 'POST', $data);
+	}
+	
 	// Check result
 	if (!isError($result))
 	{
@@ -99,13 +107,7 @@ function createTask($workspaceId, $projectId, $task)
 		return $newTask;
 	}
 	else {
-		if(isset($task['assignee'])){
-			unset($task['assignee']);
-			$result = createTask($workspaceId, $projectId, $task);
-		}
-		else{
-			pre($result, "Error creating task", 'danger');
-		}
+		pre($result, "Error creating task", 'danger');
 	}
 
 	return $result;
@@ -158,11 +160,23 @@ function copySubtasks($taskId, $newTaskId, $failsafe) {
             $result = asanaRequest("tasks/$subtaskId?opt_fields=assignee,assignee_status,completed,due_on,name,notes");
             $newSubtask = $result['data'];
             unset($newSubtask["id"]);
-            $newSubtask["assignee"] = $newSubtask["assignee"]["id"];
+            
+			p("&nbsp;&nbsp;Creating subtask: " . $newSubtask['name']);
+            
+            if (isset($newSubtask["assignee"]))
+	            $newSubtask["assignee"] = $newSubtask["assignee"]["id"];
 
             // create Subtask
             $data = array('data' => $newSubtask );
             $result = asanaRequest("tasks/$newTaskId/subtasks", 'POST', $data);
+            
+            // Try to remove assignee if an error is returned
+			// TODO check assignee exists before submitting the request
+			if (isError($result) && isset($task['assignee'])) {
+				unset($task['assignee']);
+				$data = array('data' => $task);
+				$result = asanaRequest("workspaces/$workspaceId/tasks", 'POST', $data);
+			}
 
             // add History
             $newSubId = $result["data"]["id"];
