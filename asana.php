@@ -77,6 +77,18 @@ function isError($result) {
 //
 // }
 
+function cleanTask($task) {
+	global $DEBUG;
+	if ($DEBUG) pre($task, "Cleaning task");
+	// "message": ".assignee_status: Schedule status shouldn't be set for unassigned tasks"
+	if (!$task['assignee']) {
+		unset($task['assignee_status']);
+		if ($DEBUG) pre($task, "Removed Assignee Status ('Schedule status shouldn't be set for unassigned tasks')", 'warn');
+	}
+	
+	return $task;	
+}
+
 function createTask($workspaceId, $projectId, $task)
 {
 	p("Creating task: " . $task['name']);
@@ -84,6 +96,9 @@ function createTask($workspaceId, $projectId, $task)
 	// Set projects
 	$task['projects'] = array($projectId);
 
+	// Validate task data
+	$task = cleanTask($task);
+	
 	// Create new task
 	$data = array('data' => $task);
 	$result = asanaRequest("workspaces/$workspaceId/tasks", 'POST', $data);
@@ -92,6 +107,10 @@ function createTask($workspaceId, $projectId, $task)
 	// TODO check assignee exists before submitting the request
 	if (isError($result) && isset($task['assignee'])) {
 		unset($task['assignee']);
+		
+		// Validate task data
+		$task = cleanTask($task);
+	
 		$data = array('data' => $task);
 		$result = asanaRequest("workspaces/$workspaceId/tasks", 'POST', $data);
 	}
@@ -157,25 +176,26 @@ function copySubtasks($taskId, $newTaskId, $failsafe) {
             $subtaskId = $subtask['id'];
 
             // get data for subtask
-            $result = asanaRequest("tasks/$subtaskId?opt_fields=assignee,assignee_status,completed,due_on,name,notes");
-            $newSubtask = $result['data'];
-            unset($newSubtask["id"]);
+            // TODO external field
+            $result = asanaRequest("tasks/$subtaskId?opt_fields=assignee,assignee_status,completed,due_on,due_at,hearted,name,notes");
+            $task = $result['data'];
+            unset($task["id"]);
             
-			p("&nbsp;&nbsp;Creating subtask: " . $newSubtask['name']);
+			p("&nbsp;&nbsp;Creating subtask: " . $task['name']);
             
-            if (isset($newSubtask["assignee"]))
-	            $newSubtask["assignee"] = $newSubtask["assignee"]["id"];
+            if (isset($task["assignee"]))
+	            $task["assignee"] = $task["assignee"]["id"];
 
             // create Subtask
-            $data = array('data' => $newSubtask );
+            $data = array('data' => cleanTask($task));
             $result = asanaRequest("tasks/$newTaskId/subtasks", 'POST', $data);
             
             // Try to remove assignee if an error is returned
 			// TODO check assignee exists before submitting the request
 			if (isError($result) && isset($task['assignee'])) {
 				unset($task['assignee']);
-				$data = array('data' => $task);
-				$result = asanaRequest("workspaces/$workspaceId/tasks", 'POST', $data);
+				$data = array('data' => cleanTask($task));
+				$result = asanaRequest("tasks/$newTaskId/subtasks", 'POST', $data);
 			}
 
             // add History
@@ -331,7 +351,8 @@ function copyTasks($fromProjectId, $toProjectId)
     $workspaceId = $result['data']['workspace']['id'];
 
     // GET Project tasks
-    $result = asanaRequest("projects/$fromProjectId/tasks?opt_fields=assignee,assignee_status,completed,due_on,name,notes");
+    // TODO once OAuth is used, add support for external field
+    $result = asanaRequest("projects/$fromProjectId/tasks?opt_fields=assignee,assignee_status,completed,due_on,due_at,hearted,name,notes");
 	$tasks = $result['data'];
 
     // copy Tasks
