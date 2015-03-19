@@ -203,7 +203,7 @@ function copySubtasks($taskId, $newTaskId, $failsafe, $workspaceId) {
             copyHistory($subtaskId, $newSubId);
 
             //copy tags
-            copyTags($taskId, $newTaskId, $workspaceId);
+            copyTags($subtaskId, $newSubId, $workspaceId);
 
             // subtask of subtask?
             copySubtasks($subtaskId, $newSubId, $failsafe, $workspaceId);
