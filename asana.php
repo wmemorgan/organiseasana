@@ -238,6 +238,11 @@ function copyTags ($taskId, $newTaskId, $newworkspaceId) {
     { 	// are there any tags?
         $tags = $result["data"];
 		$result = asanaRequest("workspaces/$newworkspaceId/tags");
+		if (isError($result))
+		{
+	        pre($result, "Failed to list tags in target workspace!", danger);
+			return;
+		}
 		$existingtags = $result["data"];
 		
         for ($i = count ($tags) - 1; $i >= 0; $i--) {
@@ -265,14 +270,23 @@ function copyTags ($taskId, $newTaskId, $newworkspaceId) {
                 $tag['workspace'] = $newworkspaceId;
 
                 $data = array('data' => $tag);
-                $result = asanaRequest("workspaces/$newworkspaceId/tags", "POST", $data);
+                $result = asanaRequest("tags", "POST", $data);
+                if (isError($result))
+				{
+			        pre($result, "Failed to create tag in target workspace!", danger);
+					return;
+				}
                 $tagId = $result["data"]["id"];
 
             }
 
             $data = array("data" => array("tag" => $tagId));
             $result = asanaRequest("tasks/$newTaskId/addTag", "POST", $data);
-
+            if (isError($result))
+			{
+		        pre($result, "Failed to add tag to task!", danger);
+				return;
+			}
         }
     }
 }
