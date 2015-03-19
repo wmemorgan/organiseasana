@@ -157,7 +157,7 @@ function createProject($workspaceId, $name, $teamId, $notes)
 	return $result;
 }
 
-function copySubtasks($taskId, $newTaskId, $failsafe) {
+function copySubtasks($taskId, $newTaskId, $failsafe, $workspaceId) {
 
     $failsafe++;
     if ($failsafe > 10) {
@@ -202,8 +202,11 @@ function copySubtasks($taskId, $newTaskId, $failsafe) {
             $newSubId = $result["data"]["id"];
             copyHistory($subtaskId, $newSubId);
 
+            //copy tags
+            copyTags($taskId, $newTaskId, $workspaceId);
+
             // subtask of subtask?
-            copySubtasks($subtaskId, $result["data"]["id"], $failsafe);
+            copySubtasks($subtaskId, $newSubId, $failsafe, $workspaceId);
 
         }
     }
@@ -234,15 +237,16 @@ function copyTags ($taskId, $newTaskId, $newworkspaceId) {
     if (!isError($result))
     { 	// are there any tags?
         $tags = $result["data"];
+		$result = asanaRequest("workspaces/$newworkspaceId/tags");
+		$existingtags = $result["data"];
+		
         for ($i = count ($tags) - 1; $i >= 0; $i--) {
 
             $tag = $tags[$i];
             $tagName = $tag["name"];
 
             // does tag exist?
-            $result = asanaRequest("workspaces/$newworkspaceId/tags");
             $tagisset = false;
-            $existingtags = $result["data"];
             for($j = count($existingtags) - 1; $j >= 0; $j--) {
                 $existingtag = $existingtags[$j];
 
@@ -384,7 +388,7 @@ function copyTasks($fromProjectId, $toProjectId)
 
             //implement copying of subtasks
             $failsafe = 0;
-            copySubtasks($taskId, $newTaskId, $failsafe);
+            copySubtasks($taskId, $newTaskId, $failsafe, $workspaceId);
 
 		}
 	}
