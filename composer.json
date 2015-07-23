@@ -1,0 +1,12 @@
+{
+    "name": "kothar/organiseasana",
+    "require": {
+        "pusher/pusher-php-server": "^2.2"
+    },
+    "authors": [
+        {
+            "name": "Mike Houston",
+            "email": "mike@kothar.net"
+        }
+    ]
+}

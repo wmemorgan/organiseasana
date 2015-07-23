@@ -1,65 +1,39 @@
 <?php
-date_default_timezone_set("UTC");
-header('Content-Type: text/html; charset=utf-8');
 
+include "config.php";
+include "params.php";
 include "asana.php";
 
-// Input parameters
+global $USE_MEMCACHE;
+if (!$refresh)
+	$USE_MEMCACHE = true;
 
-global $DEBUG;
-$DEBUG = false;
-if (isset($_COOKIE["debug"]))
-	$DEBUG = $_COOKIE["debug"];
-if (isset($_GET["debug"]))
-	$DEBUG = $_GET["debug"];
+if($DEBUG >= 1) {
+?>
+<div class="bs-callout bs-callout-info">
+	<h4>DEBUG Mode is ON</h4>
+	<a href="?debug=0" class="btn btn-warning">Disable</a>
 
-if ($DEBUG) {
-	setcookie("debug", $DEBUG);
-}
-
-global $apiKey;
-$apiKey = "";
-$storeKey = null;
-$targetWorkspaceId = null;
-$copy = null;
-$workspaceId = null;
-$projects = null;
-$teamId = null;
-
-// Read parameters
-if (isset($_COOKIE["apiKey"]))
-	$apiKey = $_COOKIE["apiKey"];
-if (isset($_POST["apiKey"]))
-	$apiKey = $_POST["apiKey"];
-if (isset($_POST["storeKey"]))
-	$storeKey = $_POST["storeKey"];
-
-if (isset($_POST["new_workspace"])) {
-	$workspaceId = $_POST["new_workspace"];
-}
-else {
-	if (isset($_POST["workspace"]))
-		$workspaceId = $_POST["workspace"];
-
-	if (isset($_POST["projects"]))
-		$projects = $_POST["projects"];
-
-	if (isset($_POST["new_targetWorkspace"])) {
-		$targetWorkspaceId = $_POST["new_targetWorkspace"];
+	<div class="btn-group">
+		<a href="?debug=1" class="btn btn-default">Level 1</a>
+		<a href="?debug=2" class="btn btn-default">Level 2 (show API calls)</a>
+	</div>
+</div> <?php 
+	if($DEBUG >= 3) { ?>
+<div class="bs-callout bs-callout-info">
+	<?php 
+	print "<h4>Parameters</h4>";
+	print "<pre>";
+	print(json_encode(array(
+		"APPENGINE" => $APPENGINE, 
+		"DEBUG" => $DEBUG,
+		"apiKey" => $apiKey
+		), JSON_PRETTY_PRINT));
+	print "</pre>\n";
+	flush(); ?>
+</div>
+<?php
 	}
-	else {
-		if (isset($_POST["targetWorkspace"]))
-			$targetWorkspaceId = $_POST["targetWorkspace"];
-		if (isset($_POST["copy"]))
-			$copy = $_POST["copy"];
-		if (isset($_POST["team"]))
-			$teamId = $_POST["team"];
-	}
-}
-
-// Store for 90 days
-if ($apiKey && $storeKey) {
-	setcookie("apiKey", $apiKey, time()+60*60*24*90);
 }
 
 function isOrganisation($workspace) {
@@ -134,18 +108,6 @@ function isOrganisation($workspace) {
 					</div>
 				</div>
 
-				<?php if($DEBUG) { ?>
-				<div class="bs-callout bs-callout-info">
-					<h4>DEBUG Mode is ON</h4>
-					<a href="?debug=0" class="btn btn-warning">Disable</a>
-
-					<div class="btn-group">
-						<a href="?debug=1" class="btn btn-default">Level 1</a>
-						<a href="?debug=2" class="btn btn-default">Level 2 (show API calls)</a>
-					</div>
-				</div>
-				<?php } ?>
-
 				<?php if ($apiKey) {
 
 					$targetWorkspace = null;
@@ -172,55 +134,96 @@ function isOrganisation($workspace) {
 					// Run the copy operation
 					if ($copy) {
 
-						$teamName = '';
-						if ($team)
-							$teamName = '/' . $team['name'];
-						echo '<h2>Copying Projects to '. $targetWorkspace['name'] . $teamName . '</h2>';
+						if ($APPENGINE) {
+							// Create a pusher channel
+							$channel = sha1(openssl_random_pseudo_bytes(30));
 
-						$newProjects = array();
+							// Start task
+							require_once("google/appengine/api/taskqueue/PushTask.php");
 
-						for ($i = count($projects) - 1; $i >= 0; $i--) {
-							$project = getProject($projects[$i]);
-							$targetProjectName = $project['name'];
-							$notes = $project['notes'];
+							$params = [
+								'channel' => $channel,
+								'apiKey' => $apiKey,
+								'targetWorkspace' => $targetWorkspaceId,
+								'copy' => $copy,
+								'workspace' => $workspaceId,
+								'projects' => $projects,
+								'team' => $teamId
+							];
+							$task = new \google\appengine\api\taskqueue\PushTask('/tasks/process', $params);
+							$task_name = $task->add();
 
-							// Check for an existing project in the target workspace
-							$targetProjects = getProjects($targetWorkspaceId);
-							if ($DEBUG) pre($targetProjects);
+							// Output script for listening to channel
+							?>
+							<script src="//js.pusher.com/2.2/pusher.min.js"></script>
+							<script>
+								var pusher = new Pusher("<?php echo $config['pusher_key']; ?>");
+								var channel = pusher.subscribe("<?php echo $channel; ?>");
+								channel.bind('progress', function(data) {
+								  alert('An event was triggered with message: ' + data.message);
+								});
+								channel.bind('done', function(data) {
+								  alert('An event was triggered with message: ' + data.message);
+								  pusher.unsubscribe("<?php echo $channel; ?>");
+								});
+								channel.bind('error', function(data) {
+								  alert('An event was triggered with message: ' + data.message);
+								});
+							</script>
+							<?php
+						}
+						else {
+							$teamName = '';
+							if ($team)
+								$teamName = '/' . $team['name'];
+							echo '<h2>Copying Projects to '. $targetWorkspace['name'] . $teamName . '</h2>';
 
-							$count = 2;
-							$found = false;
-							do {
+							$newProjects = array();
+
+							for ($i = count($projects) - 1; $i >= 0; $i--) {
+								$project = getProject($projects[$i]);
+								$targetProjectName = $project['name'];
+								$notes = $project['notes'];
+
+								// Check for an existing project in the target workspace
+								$targetProjects = getProjects($targetWorkspaceId);
+								if ($DEBUG) pre($targetProjects);
+
+								$count = 2;
 								$found = false;
-								for ($j = 0; $j < count($targetProjects); $j++) {
-									if (strcmp($targetProjects[$j]['name'], $targetProjectName) == 0) {
-										$targetProjectName = $project['name'] . ' ' . $count++;
-										$found = true;
-										break;
+								do {
+									$found = false;
+									for ($j = 0; $j < count($targetProjects); $j++) {
+										if (strcmp($targetProjects[$j]['name'], $targetProjectName) == 0) {
+											$targetProjectName = $project['name'] . ' ' . $count++;
+											$found = true;
+											break;
+										}
 									}
 								}
+								while ($found == true && $count < 100);
+
+								// Create target project
+								echo '<h4>Copying ' . $project['name'] . ' to ' . $targetWorkspace['name'] . $teamName . '/' . $targetProjectName . '</h4>';
+								flush();
+								$targetProject = createProject($targetWorkspaceId, $targetProjectName, $teamId, $notes);
+								$newProjects[] = $targetProject;
+
+								// Run copy
+								copyTasks($project['id'], $targetProject['id']);
 							}
-							while ($found == true && $count < 100);
 
-							// Create target project
-							echo '<h4>Copying ' . $project['name'] . ' to ' . $targetWorkspace['name'] . $teamName . '/' . $targetProjectName . '</h4>';
-							flush();
-							$targetProject = createProject($targetWorkspaceId, $targetProjectName, $teamId, $notes);
-							$newProjects[] = $targetProject;
+							echo '<b>Done</b>';
 
-							// Run copy
-							copyTasks($project['id'], $targetProject['id']);
+							echo '<h4>View in Asana</h4>';
+							echo '<div class="btn-group">';
+							for ($i = count($newProjects) - 1; $i >= 0; $i--) {
+								$project = $newProjects[$i];
+								echo '<a class="btn btn-success btn-xs" target="asana" href="https://app.asana.com/0/' . $project['id'] . '">' . $project['name'] . '</a>';
+							}
+							echo '</div>';
+							
 						}
-
-						echo '<b>Done</b>';
-
-						echo '<h4>View in Asana</h4>';
-						echo '<div class="btn-group">';
-						for ($i = count($newProjects) - 1; $i >= 0; $i--) {
-							$project = $newProjects[$i];
-							echo '<a class="btn btn-success btn-xs" target="asana" href="https://app.asana.com/0/' . $project['id'] . '">' . $project['name'] . '</a>';
-						}
-						echo '</div>';
 					}
 
 					// Display copy options

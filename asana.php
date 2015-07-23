@@ -9,6 +9,28 @@ function asanaRequest($methodPath, $httpMethod = 'GET', $body = null)
 {
 	global $apiKey;
 	global $DEBUG;
+	global $APPENGINE;
+	global $USE_MEMCACHE;
+
+	$memcache = 0;
+	$key = 0;
+
+	if ($APPENGINE && strcmp($httpMethod,'GET') == 0) {
+		$memcache = new Memcache;
+		$key = sha1($apiKey) . ":" . $methodPath;
+
+		if ($USE_MEMCACHE) {
+			$data = $memcache->get($key);
+
+			if ($DEBUG >= 2) {
+				pre(array('request' => $body, 'response' => $data), "Memcache: " . $methodPath);
+			}
+
+			if ($data != false) {
+				return $data;
+			}
+		}
+	}
 
 	$url = "https://app.asana.com/api/1.0/$methodPath";
 	$ch = curl_init();
@@ -39,25 +61,60 @@ function asanaRequest($methodPath, $httpMethod = 'GET', $body = null)
 
 	$result = json_decode($data, true);
 
+	if ($APPENGINE && $key) {
+		$memcache->set($key, $result, false, 30);
+	}
+
 	if ($DEBUG >= 2) {
 		pre(array('request' => $body, 'response' => $result), "$httpMethod " . $url);
 	}
 	return $result;
 }
 
+function progress($body) {
+	global $pusher;
+	global $channel;
+	if ($pusher) {
+		$jbody = $body;
+		if ($jbody) {
+			if (!is_string($message)) {
+				$jbody = json_encode($body);
+			}
+			$pusher->trigger($channel, 'progress', $jbody);
+		}
+	} else {
+		print "<p>" . $text . "</p>\n";
+		flush();
+	}
+}
+
+function error($body, $title, $style) {
+	global $pusher;
+	if ($pusher) {
+		$jbody = $body;
+		if ($jbody) {
+			if (!is_string($message)) {
+				$jbody = json_encode($body);
+			}
+			$pusher->trigger($channel, 'error', $jbody);
+		}
+	} else {
+		print '<div class="bs-callout bs-callout-' . $style . '">';
+		if ($title)
+			print "<h4>$title</h4>";
+		print "<pre>";
+		print(json_encode($body, JSON_PRETTY_PRINT));
+		print "</pre></div>\n";
+		flush();
+	}
+}
+
 function p($text) {
-	print "<p>" . $text . "</p>\n";
-	flush();
+	progress($text);
 }
 
 function pre($o, $title = false, $style = 'info') {
-	print '<div class="bs-callout bs-callout-' . $style . '">';
-	if ($title)
-		print "<h4>$title</h4>";
-	print "<pre>";
-	print(json_encode($o, JSON_PRETTY_PRINT));
-	print "</pre></div>\n";
-	flush();
+	error($o, $title, $style);
 }
 
 function isError($result) {

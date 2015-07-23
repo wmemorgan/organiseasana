@@ -1,0 +1,11 @@
+application: organise-asana
+version: 1
+runtime: php55
+api_version: 1
+
+handlers:
+- url: /tasks/process
+  script: process.php
+  login: admin
+- url: /.*
+  script: index.php

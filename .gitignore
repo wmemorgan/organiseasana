@@ -1,2 +1,4 @@
 *.sublime-*
 .idea
+config.php
+vendor/pusher/pusher-php-server/test
