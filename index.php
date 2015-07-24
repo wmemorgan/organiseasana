@@ -36,14 +36,6 @@ if($DEBUG >= 1) {
 	}
 }
 
-function isOrganisation($workspace) {
-	$org = isset($workspace['is_organization']) && $workspace['is_organization'];
-	if ($workspace['name'] == 'Personal Projects')
-		$org = false;
-		
-	return $org;
-}
-
 ?>
 <html>
 	<head>
@@ -87,6 +79,12 @@ function isOrganisation($workspace) {
 			.bs-callout-danger {
 				background-color: #fdf7f7;
 				border-color: #d9534f;
+			}
+
+			#log {
+				height: 200px;
+				max-height: 200px;
+				overflow-y: auto;
 			}
 		</style>
 	</head>
@@ -155,19 +153,28 @@ function isOrganisation($workspace) {
 
 							// Output script for listening to channel
 							?>
+							<h3 id="progress">Progress:</h3>
+							<div class="well" id="log"></div>
+							<h3>Complete:</h3>
+							<div id="projects"></div>
 							<script src="//js.pusher.com/2.2/pusher.min.js"></script>
 							<script>
 								var pusher = new Pusher("<?php echo $config['pusher_key']; ?>");
 								var channel = pusher.subscribe("<?php echo $channel; ?>");
 								channel.bind('progress', function(data) {
-								  alert('An event was triggered with message: ' + data.message);
+								  var message = data.message;
+								  $('#log').append(message + "<br>");
+								  $('#log').scrollTop(10000000);
+								});
+								channel.bind('copied', function(project) {
+								  $('#projects').append('<a class="btn btn-success btn-xs" target="asana" href="https://app.asana.com/0/' + project['id'] + '">' + project['name'] + '</a>');
 								});
 								channel.bind('done', function(data) {
-								  alert('An event was triggered with message: ' + data.message);
+								  $('#projects').append("<hr>Done.");
 								  pusher.unsubscribe("<?php echo $channel; ?>");
 								});
 								channel.bind('error', function(data) {
-								  alert('An event was triggered with message: ' + data.message);
+								  alert('An error occurred: ' + data);
 								});
 							</script>
 							<?php

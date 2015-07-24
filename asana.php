@@ -71,17 +71,20 @@ function asanaRequest($methodPath, $httpMethod = 'GET', $body = null)
 	return $result;
 }
 
-function progress($body) {
+function copied($project) {
 	global $pusher;
 	global $channel;
 	if ($pusher) {
-		$jbody = $body;
-		if ($jbody) {
-			if (!is_string($message)) {
-				$jbody = json_encode($body);
-			}
-			$pusher->trigger($channel, 'progress', $jbody);
-		}
+		$pusher->trigger($channel, 'copied', $project);
+	}
+}
+
+function progress($text) {
+	global $pusher;
+	global $channel;
+	if ($pusher) {
+		$body = array('message' => $text);
+		$pusher->trigger($channel, 'progress', $body);
 	} else {
 		print "<p>" . $text . "</p>\n";
 		flush();
@@ -91,13 +94,7 @@ function progress($body) {
 function error($body, $title, $style) {
 	global $pusher;
 	if ($pusher) {
-		$jbody = $body;
-		if ($jbody) {
-			if (!is_string($message)) {
-				$jbody = json_encode($body);
-			}
-			$pusher->trigger($channel, 'error', $jbody);
-		}
+		$pusher->trigger($channel, 'error', $body);
 	} else {
 		print '<div class="bs-callout bs-callout-' . $style . '">';
 		if ($title)
@@ -119,6 +116,14 @@ function pre($o, $title = false, $style = 'info') {
 
 function isError($result) {
 	return isset($result['errors']) || !isset($result['data']);
+}
+
+function isOrganisation($workspace) {
+	$org = isset($workspace['is_organization']) && $workspace['is_organization'];
+	if ($workspace['name'] == 'Personal Projects')
+		$org = false;
+		
+	return $org;
 }
 
 // function createTag($tag, $workspaceId, $newTaskId) {

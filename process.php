@@ -58,7 +58,7 @@
 		// Run copy
 		copyTasks($project['id'], $targetProject['id']);
 
-		$pusher->trigger($channel, 'done', json_encode(['project_id' => $targetProject['id']]));
+		copied($targetProject);
 	}
 
 ?>
