@@ -10,7 +10,6 @@ function asanaRequest($methodPath, $httpMethod = 'GET', $body = null)
 	global $apiKey;
 	global $DEBUG;
 	global $APPENGINE;
-	global $USE_MEMCACHE;
 
 	$memcache = 0;
 	$key = 0;
@@ -19,16 +18,14 @@ function asanaRequest($methodPath, $httpMethod = 'GET', $body = null)
 		$memcache = new Memcache;
 		$key = sha1($apiKey) . ":" . $methodPath;
 
-		if ($USE_MEMCACHE) {
-			$data = $memcache->get($key);
+		$data = $memcache->get($key);
 
-			if ($DEBUG >= 2) {
-				pre(array('request' => $body, 'response' => $data), "Memcache: " . $methodPath);
-			}
+		if ($DEBUG >= 2) {
+			pre(array('request' => $body, 'response' => $data), "Memcache: " . $methodPath);
+		}
 
-			if ($data != false) {
-				return $data;
-			}
+		if ($data != false) {
+			return $data;
 		}
 	}
 
@@ -143,7 +140,7 @@ function cleanTask($task) {
 	global $DEBUG;
 	if ($DEBUG) pre($task, "Cleaning task");
 	// "message": ".assignee_status: Schedule status shouldn't be set for unassigned tasks"
-	if (!$task['assignee']) {
+	if (!isset($task['assignee'])) {
 		unset($task['assignee_status']);
 		if ($DEBUG) pre($task, "Removed Assignee Status ('Schedule status shouldn't be set for unassigned tasks')", 'warn');
 	}
@@ -153,7 +150,12 @@ function cleanTask($task) {
 
 function createTask($workspaceId, $projectId, $task)
 {
-	p("Creating task: " . $task['name']);
+	if (!isset($task['name'])) {
+		p("Creating task with blank name");
+	}
+	else {
+		p("Creating task: " . $task['name']);
+	}
 
 	// Set projects
 	$task['projects'] = array($projectId);
@@ -219,10 +221,9 @@ function createProject($workspaceId, $name, $teamId, $notes)
 	return $result;
 }
 
-function copySubtasks($taskId, $newTaskId, $failsafe, $workspaceId) {
-
-    $failsafe++;
-    if ($failsafe > 10) {
+function copySubtasks($taskId, $newTaskId, $depth, $workspaceId) {
+    $depth++;
+    if ($depth > 10) {
         return FALSE;
     }
 
@@ -235,45 +236,73 @@ function copySubtasks($taskId, $newTaskId, $failsafe, $workspaceId) {
         for ($i= count($subtasks) - 1; $i >= 0; $i--) {
 
             $subtask = $subtasks[$i];
-            $subtaskId = $subtask['id'];
-
-            // get data for subtask
-            // TODO external field
-            $result = asanaRequest("tasks/$subtaskId?opt_fields=assignee,assignee_status,completed,due_on,due_at,hearted,name,notes");
-            $task = $result['data'];
-            unset($task["id"]);
             
-			p("&nbsp;&nbsp;Creating subtask: " . $task['name']);
-            
-            if (isset($task["assignee"]))
-	            $task["assignee"] = $task["assignee"]["id"];
-
-            // create Subtask
-            $data = array('data' => cleanTask($task));
-            $result = asanaRequest("tasks/$newTaskId/subtasks", 'POST', $data);
-            
-            // Try to remove assignee if an error is returned
-			// TODO check assignee exists before submitting the request
-			if (isError($result) && isset($task['assignee'])) {
-				unset($task['assignee']);
-				$data = array('data' => cleanTask($task));
-				$result = asanaRequest("tasks/$newTaskId/subtasks", 'POST', $data);
-			}
-
-            // add History
-            $newSubId = $result["data"]["id"];
-            copyHistory($subtaskId, $newSubId);
-
-            //copy tags
-            copyTags($subtaskId, $newSubId, $workspaceId);
-
-            // subtask of subtask?
-            copySubtasks($subtaskId, $newSubId, $failsafe, $workspaceId);
+            if ($APPENGINE) {
+            	queueSubtask($subtask, $newTaskId, $workspaceId, $depth);
+            }
+            else {
+            	copySubtask($subtask, $newTaskId, $workspaceId, $depth);
+            }
 
         }
     }
+}
 
+function queueSubtask($subtask, $newTaskId, $workspaceId, $depth) {
+	global $channel;
+	global $apiKey;
 
+	// Start task
+	require_once("google/appengine/api/taskqueue/PushTask.php");
+
+	$params = [
+		'channel' => $channel,
+		'apiKey' => $apiKey,
+		'copy' => 'subtask',
+		'subtask' => $subtask,
+		'newTaskId' => $newTaskId,
+		'workspaceId' => $workspaceId,
+		'depth' => $depth
+	];
+	$job = new \google\appengine\api\taskqueue\PushTask('/tasks/process', $params);
+	$task_name = $job->add();
+}
+
+function copySubtask($subtask, $newTaskId, $workspaceId, $depth) {
+	$subtaskId = $subtask['id'];
+
+    // get data for subtask
+    // TODO external field
+    $result = asanaRequest("tasks/$subtaskId?opt_fields=assignee,assignee_status,completed,due_on,due_at,hearted,name,notes");
+    $task = $result['data'];
+    unset($task["id"]);
+    
+	p(str_repeat("&nbsp;", $depth) . "Creating subtask: " . $task['name']);
+    
+    if (isset($task["assignee"]))
+        $task["assignee"] = $task["assignee"]["id"];
+
+    // create Subtask
+    $data = array('data' => cleanTask($task));
+    $result = asanaRequest("tasks/$newTaskId/subtasks", 'POST', $data);
+    
+    // Try to remove assignee if an error is returned
+	// TODO check assignee exists before submitting the request
+	if (isError($result) && isset($task['assignee'])) {
+		unset($task['assignee']);
+		$data = array('data' => cleanTask($task));
+		$result = asanaRequest("tasks/$newTaskId/subtasks", 'POST', $data);
+	}
+
+    // add History
+    $newSubId = $result["data"]["id"];
+    copyHistory($subtaskId, $newSubId);
+
+    //copy tags
+    copyTags($subtaskId, $newSubId, $workspaceId);
+
+    // subtask of subtask?
+    copySubtasks($subtaskId, $newSubId, $depth, $workspaceId);
 }
 
 function copyHistory($taskId, $newTaskId) {
@@ -435,37 +464,71 @@ function copyTasks($fromProjectId, $toProjectId)
     $result = asanaRequest("projects/$fromProjectId/tasks?opt_fields=assignee,assignee_status,completed,due_on,due_at,hearted,name,notes");
 	$tasks = $result['data'];
 
+	global $APPENGINE;
+
     // copy Tasks
     for ($i = count($tasks) - 1; $i >= 0; $i--)
 	{
 		$task = $tasks[$i];
-		$newTask = $task;
-		unset($newTask['id']);
-		$newTask['assignee'] = $newTask['assignee']['id'];
-		foreach ($newTask as $key => $value)
-		{
-			if (empty($value))
-			{
-				unset($newTask[$key]);
-			}
+		
+		if ($APPENGINE) {
+			queueTask($workspaceId, $toProjectId, $task, $newTask);
 		}
-		$newTask = createTask($workspaceId, $toProjectId, $newTask);
-
-		if ($newTask['id'])
-		{
-
-            //copy history
-			$taskId = $task['id'];
-            $newTaskId = $newTask['id'];
-			copyHistory($taskId, $newTaskId);
-
-            //copy tags
-            copyTags($taskId, $newTaskId, $workspaceId);
-
-            //implement copying of subtasks
-            $failsafe = 0;
-            copySubtasks($taskId, $newTaskId, $failsafe, $workspaceId);
-
+		else {
+			copyTask($workspaceId, $toProjectId, $task, $newTask);
 		}
+	}
+}
+
+function queueTask($workspaceId, $toProjectId, $task) {
+	global $channel;
+	global $apiKey;
+
+	// Start task
+	require_once("google/appengine/api/taskqueue/PushTask.php");
+
+	$params = [
+		'channel' => $channel,
+		'apiKey' => $apiKey,
+		'copy' => 'task',
+		'workspaceId' => $workspaceId,
+		'task' => $task,
+		'toProjectId' => $toProjectId
+	];
+	$job = new \google\appengine\api\taskqueue\PushTask('/tasks/process', $params);
+	$task_name = $job->add();
+}
+
+function copyTask($workspaceId, $toProjectId, $task) {
+
+	$taskId = $task['id'];
+
+	$newTask = $task;
+	unset($newTask['id']);
+	$newTask['assignee'] = $newTask['assignee']['id'];
+	foreach ($newTask as $key => $value)
+	{
+		if (empty($value))
+		{
+			unset($newTask[$key]);
+		}
+	}
+
+	$newTask = createTask($workspaceId, $toProjectId, $newTask);
+
+	if ($newTask['id'])
+	{
+
+        //copy history
+        $newTaskId = $newTask['id'];
+		copyHistory($taskId, $newTaskId);
+
+        //copy tags
+        copyTags($taskId, $newTaskId, $workspaceId);
+
+        //implement copying of subtasks
+        $depth = 0;
+        copySubtasks($taskId, $newTaskId, $depth, $workspaceId);
+
 	}
 }

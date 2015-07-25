@@ -4,10 +4,6 @@ include "config.php";
 include "params.php";
 include "asana.php";
 
-global $USE_MEMCACHE;
-if (!$refresh)
-	$USE_MEMCACHE = true;
-
 if($DEBUG >= 1) {
 ?>
 <div class="bs-callout bs-callout-info">
@@ -143,7 +139,7 @@ if($DEBUG >= 1) {
 								'channel' => $channel,
 								'apiKey' => $apiKey,
 								'targetWorkspace' => $targetWorkspaceId,
-								'copy' => $copy,
+								'copy' => 'projects',
 								'workspace' => $workspaceId,
 								'projects' => $projects,
 								'team' => $teamId
@@ -155,8 +151,9 @@ if($DEBUG >= 1) {
 							?>
 							<h3 id="progress">Progress:</h3>
 							<div class="well" id="log"></div>
-							<h3>Complete:</h3>
+							<h3>New projects:</h3>
 							<div id="projects"></div>
+							<hr>
 							<script src="//js.pusher.com/2.2/pusher.min.js"></script>
 							<script>
 								var pusher = new Pusher("<?php echo $config['pusher_key']; ?>");
