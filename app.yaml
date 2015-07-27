@@ -9,3 +9,9 @@ handlers:
   login: admin
 - url: /
   script: index.php
+# All URLs ending in .gif .png or .jpg are treated as paths to static files in
+# the static/ directory. The URL pattern is a regexp, with a grouping that is
+# inserted into the path to the file.
+- url: /(.*\.(gif|png|jpg|ico|css|js|txt))$
+  static_files: static/\1
+  upload: static/.*\.(gif|png|jpg|ico|css|js|txt)$

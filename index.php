@@ -39,9 +39,9 @@ if($DEBUG >= 1) {
 		<script src="//code.jquery.com/jquery-1.11.0.min.js"></script>
 
 		<link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css">
-		<!-- <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap-theme.min.css"> -->
+		<link rel="stylesheet" href="/theme.min.css">
 		<script src="//netdna.bootstrapcdn.com/bootstrap/3.1.1/js/bootstrap.min.js"></script>
-
+		<link rel="shortcut icon" href="/favicon.ico">
 		<style>
 			form input[type=text] { width: 500px; }
 
@@ -91,6 +91,12 @@ if($DEBUG >= 1) {
 			</div>
 			<p class="lead">
 				Copy <a href="https://asana.com" target="asana">Asana</a> projects from one workspace to another.
+			</p>
+			<p>
+				<b>Update 27th July 2015:</b> I've moved the tool to a new server to allow me to make some of the improvements that have been
+				requested. Unfortunately that's caused a few teething problems. If something isn't working for you, you can
+				still access the old version at <a href="http://asana-old.kothar.net">http://asana-old.kothar.net</a> while
+				I shake out any bugs.
 			</p>
 			<form role="form" method="POST">
 				<div class="row">
