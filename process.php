@@ -72,12 +72,16 @@
 		$workspaceId = $_POST['workspaceId'];
 		$taskId = $_POST['taskId'];
 		$newTaskId = $_POST['newTaskId'];
+
+		progress('Copying task ' . $taskId);
 		copyTask($workspaceId, $taskId, $newTaskId);
 	} else if (strcmp($copy, 'subtask') == 0) {
 		$subtaskId = $_POST['subtaskId'];
 		$newSubId = $_POST['newSubId'];
 		$workspaceId = $_POST['workspaceId'];
 		$depth = $_POST['depth'];
+
+		progress('Copying subtask ' . $newSubId);
 		copySubtask($subtaskId, $newSubId, $workspaceId, $depth);
 	}
 

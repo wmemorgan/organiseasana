@@ -78,8 +78,8 @@ if($DEBUG >= 1) {
 			}
 
 			#log {
-				height: 200px;
-				max-height: 200px;
+				height: 400px;
+				max-height: 400px;
 				overflow-y: auto;
 			}
 		</style>
@@ -156,7 +156,9 @@ if($DEBUG >= 1) {
 							// Output script for listening to channel
 							?>
 							<h3 id="progress">Progress:</h3>
-							<div class="well" id="log"></div>
+							<div class="well" id="log">
+								Waiting in queue...<br>
+							</div>
 							<h3>New projects:</h3>
 							<div id="projects"></div>
 							<hr>

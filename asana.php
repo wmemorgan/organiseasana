@@ -10,9 +10,11 @@ function asanaRequest($methodPath, $httpMethod = 'GET', $body = null, $cached = 
 	global $apiKey;
 	global $DEBUG;
 	global $APPENGINE;
+	global $ratelimit;
 
-	$memcache = 0;
-	$key = 0;
+	$key = false;
+	$ratelimit = false;
+	$ratelimitKey = sha1($apiKey) . ":ratelimit";
 
 	if ($APPENGINE && strcmp($httpMethod,'GET') == 0 && $cached) {
 		$key = sha1($apiKey) . ":" . $methodPath;
@@ -26,6 +28,8 @@ function asanaRequest($methodPath, $httpMethod = 'GET', $body = null, $cached = 
 		if ($data != false) {
 			return $data;
 		}
+
+		$ratelimit = getCached($ratelimitKey);
 	}
 
 	$url = "https://app.asana.com/api/1.0/$methodPath";
@@ -51,11 +55,26 @@ function asanaRequest($methodPath, $httpMethod = 'GET', $body = null, $cached = 
 		curl_setopt($ch, CURLOPT_POSTFIELDS, $jbody);
 	}
 
-	$data = curl_exec($ch);
-	$error = curl_error($ch);
-	curl_close($ch);
+	for ($i = 0; $i < 10; $i++) {
+		if ($ratelimit > time()) {
+			echo("Waiting for rate limit (". ($ratelimit - time()) . "s)");
+			time_sleep_until($ratelimit);
+		}
 
-	$result = json_decode($data, true);
+		$data = curl_exec($ch);
+		$error = curl_error($ch);
+
+		$result = json_decode($data, true);
+
+		if(isset($result['retry_after'])) {
+			$ratelimit = time() + $result['retry_after'];
+			cache($ratelimitKey, $ratelimit);
+			continue;
+		}
+		break;
+	}
+
+	curl_close($ch);
 
 	cache($key, $result);
 
@@ -296,6 +315,7 @@ function copySubtasks($taskId, $newTaskId, $depth, $workspaceId) {
 			$newsubtask = $result["data"];
 			$newSubId = $newsubtask['id'];
             
+            global $APPENGINE;
             if ($APPENGINE) {
             	queueSubtask($subtaskId, $newSubId, $workspaceId, $depth);
             }
