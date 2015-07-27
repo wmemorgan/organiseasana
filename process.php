@@ -70,15 +70,15 @@
 		}
 	} else if (strcmp($copy, 'task') == 0) {
 		$workspaceId = $_POST['workspaceId'];
-		$toProjectId = $_POST['toProjectId'];
-		$task = $_POST['task'];
-		copyTask($workspaceId, $toProjectId, $task);
-	} else if (strcmp($copy, 'subtask') == 0) {
-		$subtask = $_POST['subtask'];
+		$taskId = $_POST['taskId'];
 		$newTaskId = $_POST['newTaskId'];
+		copyTask($workspaceId, $taskId, $newTaskId);
+	} else if (strcmp($copy, 'subtask') == 0) {
+		$subtaskId = $_POST['subtaskId'];
+		$newSubId = $_POST['newSubId'];
 		$workspaceId = $_POST['workspaceId'];
 		$depth = $_POST['depth'];
-		copySubtask($subtask, $newTaskId, $workspaceId, $depth);
+		copySubtask($subtaskId, $newSubId, $workspaceId, $depth);
 	}
 
 ?>

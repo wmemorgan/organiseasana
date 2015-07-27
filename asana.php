@@ -5,7 +5,7 @@
  * https://gist.github.com/AWeg/5814427
  */
 
-function asanaRequest($methodPath, $httpMethod = 'GET', $body = null)
+function asanaRequest($methodPath, $httpMethod = 'GET', $body = null, $cached = true)
 {
 	global $apiKey;
 	global $DEBUG;
@@ -14,11 +14,10 @@ function asanaRequest($methodPath, $httpMethod = 'GET', $body = null)
 	$memcache = 0;
 	$key = 0;
 
-	if ($APPENGINE && strcmp($httpMethod,'GET') == 0) {
-		$memcache = new Memcache;
+	if ($APPENGINE && strcmp($httpMethod,'GET') == 0 && $cached) {
 		$key = sha1($apiKey) . ":" . $methodPath;
 
-		$data = $memcache->get($key);
+		$data = getCached($key);
 
 		if ($DEBUG >= 2) {
 			pre(array('request' => $body, 'response' => $data), "Memcache: " . $methodPath);
@@ -58,14 +57,35 @@ function asanaRequest($methodPath, $httpMethod = 'GET', $body = null)
 
 	$result = json_decode($data, true);
 
-	if ($APPENGINE && $key) {
-		$memcache->set($key, $result, false, 30);
-	}
+	cache($key, $result);
 
 	if ($DEBUG >= 2) {
 		pre(array('request' => $body, 'response' => $result), "$httpMethod " . $url);
 	}
 	return $result;
+}
+
+function cache($key, $result) {
+	global $APPENGINE;
+	if ($APPENGINE && $key) {
+		getMemcache()->set($key, $result, false, 120);
+	}
+}
+
+function getCached($key) {
+	global $APPENGINE;
+	if ($APPENGINE) {
+		$data = getMemcache()->get($key);
+		return $data;
+	}
+	return null;
+}
+
+function getMemcache() {
+	global $memcache;
+	if (!$memcache)
+		$memcache = new Memcache;
+	return $memcache;
 }
 
 function copied($project) {
@@ -90,8 +110,11 @@ function progress($text) {
 
 function error($body, $title, $style) {
 	global $pusher;
+	global $channel;
 	if ($pusher) {
 		$pusher->trigger($channel, 'error', $body);
+		if (strcmp($style, 'danger') == 0)
+			throw new Exception(json_encode($body, JSON_PRETTY_PRINT));
 	} else {
 		print '<div class="bs-callout bs-callout-' . $style . '">';
 		if ($title)
@@ -229,6 +252,9 @@ function copySubtasks($taskId, $newTaskId, $depth, $workspaceId) {
 
     // GET subtasks of task
     $result = asanaRequest("tasks/$taskId/subtasks");
+    if (isError($result)) {
+		pre($result, "Error getting subtasks", 'danger');
+	}
     $subtasks = $result["data"];
 
 
@@ -236,19 +262,52 @@ function copySubtasks($taskId, $newTaskId, $depth, $workspaceId) {
         for ($i= count($subtasks) - 1; $i >= 0; $i--) {
 
             $subtask = $subtasks[$i];
+
+            $subtaskId = $subtask['id'];
+
+		    // get data for subtask
+		    // TODO external field
+		    $result = asanaRequest("tasks/$subtaskId?opt_fields=assignee,assignee_status,completed,due_on,due_at,hearted,name,notes");
+		    $task = $result['data'];
+		    unset($task["id"]);
+		    
+			p(str_repeat("&nbsp;", $depth) . "Creating subtask: " . $task['name']);
+		    
+		    if (isset($task["assignee"]))
+		        $task["assignee"] = $task["assignee"]["id"];
+
+		    // create Subtask
+		    $data = array('data' => cleanTask($task));
+		    $result = asanaRequest("tasks/$newTaskId/subtasks", 'POST', $data);
+		    
+		    // Try to remove assignee if an error is returned
+			// TODO check assignee exists before submitting the request
+			if (isError($result) && isset($task['assignee'])) {
+				unset($task['assignee']);
+				$data = array('data' => cleanTask($task));
+				$result = asanaRequest("tasks/$newTaskId/subtasks", 'POST', $data);
+			}
+
+			if (isError($result)) {
+				pre($result, "Failed to create subtask!", 'danger');
+				return;
+			}
+
+			$newsubtask = $result["data"];
+			$newSubId = $newsubtask['id'];
             
             if ($APPENGINE) {
-            	queueSubtask($subtask, $newTaskId, $workspaceId, $depth);
+            	queueSubtask($subtaskId, $newSubId, $workspaceId, $depth);
             }
             else {
-            	copySubtask($subtask, $newTaskId, $workspaceId, $depth);
+            	copySubtask($subtaskId, $newSubId, $workspaceId, $depth);
             }
 
         }
     }
 }
 
-function queueSubtask($subtask, $newTaskId, $workspaceId, $depth) {
+function queueSubtask($subtaskId, $newSubId, $workspaceId, $depth) {
 	global $channel;
 	global $apiKey;
 
@@ -259,8 +318,8 @@ function queueSubtask($subtask, $newTaskId, $workspaceId, $depth) {
 		'channel' => $channel,
 		'apiKey' => $apiKey,
 		'copy' => 'subtask',
-		'subtask' => $subtask,
-		'newTaskId' => $newTaskId,
+		'subtaskId' => $subtaskId,
+		'newSubId' => $newSubId,
 		'workspaceId' => $workspaceId,
 		'depth' => $depth
 	];
@@ -268,34 +327,9 @@ function queueSubtask($subtask, $newTaskId, $workspaceId, $depth) {
 	$task_name = $job->add();
 }
 
-function copySubtask($subtask, $newTaskId, $workspaceId, $depth) {
-	$subtaskId = $subtask['id'];
-
-    // get data for subtask
-    // TODO external field
-    $result = asanaRequest("tasks/$subtaskId?opt_fields=assignee,assignee_status,completed,due_on,due_at,hearted,name,notes");
-    $task = $result['data'];
-    unset($task["id"]);
-    
-	p(str_repeat("&nbsp;", $depth) . "Creating subtask: " . $task['name']);
-    
-    if (isset($task["assignee"]))
-        $task["assignee"] = $task["assignee"]["id"];
-
-    // create Subtask
-    $data = array('data' => cleanTask($task));
-    $result = asanaRequest("tasks/$newTaskId/subtasks", 'POST', $data);
-    
-    // Try to remove assignee if an error is returned
-	// TODO check assignee exists before submitting the request
-	if (isError($result) && isset($task['assignee'])) {
-		unset($task['assignee']);
-		$data = array('data' => cleanTask($task));
-		$result = asanaRequest("tasks/$newTaskId/subtasks", 'POST', $data);
-	}
+function copySubtask($subtaskId, $newSubId, $workspaceId, $depth) {
 
     // add History
-    $newSubId = $result["data"]["id"];
     copyHistory($subtaskId, $newSubId);
 
     //copy tags
@@ -308,6 +342,12 @@ function copySubtask($subtask, $newTaskId, $workspaceId, $depth) {
 function copyHistory($taskId, $newTaskId) {
 
 	$result = asanaRequest("tasks/$taskId/stories");
+	if (isError($result))
+	{
+        pre($result, "Failed to list tags in target workspace!", 'danger');
+		return;
+	}
+
 	$comments = array();
 	foreach ($result['data'] as $story){
 		$date = date('l M d, Y h:i A', strtotime($story['created_at']));
@@ -331,7 +371,7 @@ function copyTags ($taskId, $newTaskId, $newworkspaceId) {
 		$result = asanaRequest("workspaces/$newworkspaceId/tags");
 		if (isError($result))
 		{
-	        pre($result, "Failed to list tags in target workspace!", danger);
+	        pre($result, "Failed to list tags in target workspace!", 'danger');
 			return;
 		}
 		$existingtags = $result["data"];
@@ -342,16 +382,22 @@ function copyTags ($taskId, $newTaskId, $newworkspaceId) {
             $tagName = $tag["name"];
 
             // does tag exist?
-            $tagisset = false;
-            for($j = count($existingtags) - 1; $j >= 0; $j--) {
-                $existingtag = $existingtags[$j];
+            $tagkey = "$newworkspaceId:tag:$tagName";
+            $existingtag = getCached($tagkey);
+            $tagisset = $existingtag != null;
+            if (!$tagisset) {
+	            for($j = count($existingtags) - 1; $j >= 0; $j--) {
+	                $existingtag = $existingtags[$j];
 
-                if ($tagName == $existingtag["name"]) {
-                    $tagisset = true;
-                    $tagId = $existingtag["id"];
-                    break;
-                }
-            }
+	                if (strcmp($tagName,$existingtag["name"]) == 0) {
+	                    $tagisset = true;
+	                    $tagId = $existingtag["id"];
+	                    break;
+	                }
+	            }
+	        } else {
+	        	$tagId = $existingtag["id"];
+	        }
 
             if (!$tagisset) {
 
@@ -364,18 +410,20 @@ function copyTags ($taskId, $newTaskId, $newworkspaceId) {
                 $result = asanaRequest("tags", "POST", $data);
                 if (isError($result))
 				{
-			        pre($result, "Failed to create tag in target workspace!", danger);
+			        pre($result, "Failed to create tag in target workspace!", 'danger');
 					return;
 				}
                 $tagId = $result["data"]["id"];
 
+				// Cache new tag
+				cache($tagkey, $result["data"]);
             }
 
             $data = array("data" => array("tag" => $tagId));
             $result = asanaRequest("tasks/$newTaskId/addTag", "POST", $data);
             if (isError($result))
 			{
-		        pre($result, "Failed to add tag to task!", danger);
+		        pre($result, "Failed to add tag to task!", 'danger');
 				return;
 			}
         }
@@ -386,7 +434,7 @@ function getWorkspaces() {
 	$result = asanaRequest("workspaces");
 	if (isError($result))
 	{
-        pre($result, "Error Loading Workspaces!", danger);
+        pre($result, "Error Loading Workspaces!", 'danger');
 		return;
 	}
 
@@ -467,20 +515,37 @@ function copyTasks($fromProjectId, $toProjectId)
 	global $APPENGINE;
 
     // copy Tasks
+    // TODO check timing and re-queue after 5mins
     for ($i = count($tasks) - 1; $i >= 0; $i--)
 	{
 		$task = $tasks[$i];
+
+		$taskId = $task['id'];
+
+		$newTask = $task;
+		unset($newTask['id']);
+		$newTask['assignee'] = $newTask['assignee']['id'];
+		foreach ($newTask as $key => $value)
+		{
+			if (empty($value))
+			{
+				unset($newTask[$key]);
+			}
+		}
+
+		$newTask = createTask($workspaceId, $toProjectId, $newTask);
+		$newTaskId = $newTask["id"];
 		
 		if ($APPENGINE) {
-			queueTask($workspaceId, $toProjectId, $task, $newTask);
+			queueTask($workspaceId, $taskId, $newTaskId);
 		}
 		else {
-			copyTask($workspaceId, $toProjectId, $task, $newTask);
+			copyTask($workspaceId, $taskId, $newTaskId);
 		}
 	}
 }
 
-function queueTask($workspaceId, $toProjectId, $task) {
+function queueTask($workspaceId, $taskId, $newTaskId) {
 	global $channel;
 	global $apiKey;
 
@@ -492,43 +557,22 @@ function queueTask($workspaceId, $toProjectId, $task) {
 		'apiKey' => $apiKey,
 		'copy' => 'task',
 		'workspaceId' => $workspaceId,
-		'task' => $task,
-		'toProjectId' => $toProjectId
+		'taskId' => $taskId,
+		'newTaskId' => $newTaskId
 	];
 	$job = new \google\appengine\api\taskqueue\PushTask('/tasks/process', $params);
 	$task_name = $job->add();
 }
 
-function copyTask($workspaceId, $toProjectId, $task) {
+function copyTask($workspaceId, $taskId, $newTaskId) {
 
-	$taskId = $task['id'];
+    //copy history
+	copyHistory($taskId, $newTaskId);
 
-	$newTask = $task;
-	unset($newTask['id']);
-	$newTask['assignee'] = $newTask['assignee']['id'];
-	foreach ($newTask as $key => $value)
-	{
-		if (empty($value))
-		{
-			unset($newTask[$key]);
-		}
-	}
+    //copy tags
+    copyTags($taskId, $newTaskId, $workspaceId);
 
-	$newTask = createTask($workspaceId, $toProjectId, $newTask);
-
-	if ($newTask['id'])
-	{
-
-        //copy history
-        $newTaskId = $newTask['id'];
-		copyHistory($taskId, $newTaskId);
-
-        //copy tags
-        copyTags($taskId, $newTaskId, $workspaceId);
-
-        //implement copying of subtasks
-        $depth = 0;
-        copySubtasks($taskId, $newTaskId, $depth, $workspaceId);
-
-	}
+    //implement copying of subtasks
+    $depth = 0;
+    copySubtasks($taskId, $newTaskId, $depth, $workspaceId);
 }

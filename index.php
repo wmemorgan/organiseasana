@@ -170,14 +170,16 @@ if($DEBUG >= 1) {
 								  $('#log').scrollTop(10000000);
 								});
 								channel.bind('copied', function(project) {
-								  $('#projects').append('<a class="btn btn-success btn-xs" target="asana" href="https://app.asana.com/0/' + project['id'] + '">' + project['name'] + '</a>');
+								  $('#projects').append('<a class="btn btn-success btn-xs" target="asana" href="https://app.asana.com/0/' + project['id'] + '">' + project['name'] + '</a> ');
 								});
 								channel.bind('done', function(data) {
 								  $('#projects').append("<hr>Done.");
 								  pusher.unsubscribe("<?php echo $channel; ?>");
 								});
 								channel.bind('error', function(data) {
-								  alert('An error occurred: ' + data);
+								  var message = JSON.stringify(data, null, 2);
+								  $('#log').append('<p class="text-danger"><pre>' + message + "</pre></p><br>");
+								  $('#log').scrollTop(10000000);
 								});
 							</script>
 							<?php
