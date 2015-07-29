@@ -1,8 +1,51 @@
 <?php
 
-include "config.php";
-include "params.php";
-include "asana.php";
+	include "init.php";
+	include "asana.php";
+
+
+	// Input parameters
+	$storeKey = null;
+	$targetWorkspaceId = null;
+	$copy = null;
+	$workspaceId = null;
+	$projects = null;
+	$teamId = null;
+	$refresh = false;
+
+	// Read parameters
+	if (isset($_POST["storeKey"]))
+		$storeKey = $_POST["storeKey"];
+	if (isset($_POST["refresh"]))
+		$channel = $_POST['refresh'];
+
+	if (isset($_POST["new_workspace"])) {
+		$workspaceId = $_POST["new_workspace"];
+	}
+	else {
+		if (isset($_POST["workspace"]))
+			$workspaceId = $_POST["workspace"];
+
+		if (isset($_POST["projects"]))
+			$projects = $_POST["projects"];
+
+		if (isset($_POST["new_targetWorkspace"])) {
+			$targetWorkspaceId = $_POST["new_targetWorkspace"];
+		}
+		else {
+			if (isset($_POST["targetWorkspace"]))
+				$targetWorkspaceId = $_POST["targetWorkspace"];
+			if (isset($_POST["copy"]))
+				$copy = $_POST["copy"];
+			if (isset($_POST["team"]))
+				$teamId = $_POST["team"];
+		}
+	}
+
+	// Store for 90 days
+	if ($apiKey && $storeKey) {
+		setcookie("apiKey", $apiKey, time()+60*60*24*90);
+	}
 
 if($DEBUG >= 1) {
 ?>
@@ -150,7 +193,7 @@ if($DEBUG >= 1) {
 								'projects' => $projects,
 								'team' => $teamId
 							];
-							$task = new \google\appengine\api\taskqueue\PushTask('/tasks/process', $params);
+							$task = new \google\appengine\api\taskqueue\PushTask('/process/project', $params);
 							$task_name = $task->add();
 
 							// Output script for listening to channel
@@ -171,7 +214,7 @@ if($DEBUG >= 1) {
 								  $('#log').append(message + "<br>");
 								  $('#log').scrollTop(10000000);
 								});
-								channel.bind('copied', function(project) {
+								channel.bind('created', function(project) {
 								  $('#projects').append('<a class="btn btn-success btn-xs" target="asana" href="https://app.asana.com/0/' + project['id'] + '">' + project['name'] + '</a> ');
 								});
 								channel.bind('done', function(data) {

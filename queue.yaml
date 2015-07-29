@@ -1,6 +1,6 @@
 queue:
 - name: default
-  rate: 0.25/s
+  rate: 5/s
   bucket_size: 25
   max_concurrent_requests: 2
   retry_parameters:

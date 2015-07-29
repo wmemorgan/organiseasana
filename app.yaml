@@ -4,8 +4,17 @@ runtime: php55
 api_version: 1
 
 handlers:
-- url: /tasks/process
-  script: process.php
+- url: /process/project
+  script: process_project.php
+  login: admin
+- url: /process/tasks
+  script: process_tasks.php
+  login: admin
+- url: /process/task
+  script: process_task.php
+  login: admin
+- url: /process/subtask
+  script: process_subtask.php
   login: admin
 - url: /
   script: index.php

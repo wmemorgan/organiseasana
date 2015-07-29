@@ -5,7 +5,7 @@
  * https://gist.github.com/AWeg/5814427
  */
 
-function asanaRequest($methodPath, $httpMethod = 'GET', $body = null, $cached = true)
+function asanaRequest($methodPath, $httpMethod = 'GET', $body = null, $cached = true, $wait = true)
 {
 	global $apiKey;
 	global $DEBUG;
@@ -57,8 +57,12 @@ function asanaRequest($methodPath, $httpMethod = 'GET', $body = null, $cached = 
 
 	for ($i = 0; $i < 10; $i++) {
 		if ($ratelimit > time()) {
-			echo("Waiting for rate limit (". ($ratelimit - time()) . "s)");
-			time_sleep_until($ratelimit);
+			if ($wait) {
+				echo("Waiting for rate limit (". ($ratelimit - time()) . "s)");
+				time_sleep_until($ratelimit);
+			} else {
+				die ("Rate limit reached: retry in " . ($ratelimit - time()) . "s")
+			}
 		}
 
 		$data = curl_exec($ch);
@@ -69,7 +73,9 @@ function asanaRequest($methodPath, $httpMethod = 'GET', $body = null, $cached = 
 		if(isset($result['retry_after'])) {
 			$ratelimit = time() + $result['retry_after'];
 			cache($ratelimitKey, $ratelimit);
-			continue;
+
+			if ($wait)
+				continue;
 		}
 		break;
 	}
@@ -107,11 +113,11 @@ function getMemcache() {
 	return $memcache;
 }
 
-function copied($project) {
+function notifyCreated($project) {
 	global $pusher;
 	global $channel;
 	if ($pusher) {
-		$pusher->trigger($channel, 'copied', $project);
+		$pusher->trigger($channel, 'created', $project);
 	}
 }
 
@@ -347,7 +353,7 @@ function queueSubtask($subtaskId, $newSubId, $workspaceId, $depth) {
 		'workspaceId' => $workspaceId,
 		'depth' => $depth
 	];
-	$job = new \google\appengine\api\taskqueue\PushTask('/tasks/process', $params);
+	$job = new \google\appengine\api\taskqueue\PushTask('/process/subtask', $params);
 	$task_name = $job->add();
 }
 
@@ -520,7 +526,25 @@ function getProject($projectId) {
 	return $result['data'];
 }
 
-function copyTasks($fromProjectId, $toProjectId)
+function queueTasks($fromProjectId, $toProjectId, $offset = 0) {
+	global $channel;
+	global $apiKey;
+
+	// Start task
+	require_once("google/appengine/api/taskqueue/PushTask.php");
+
+	$params = [
+		'channel' => $channel,
+		'apiKey' => $apiKey,
+		'fromProjectId' => $fromProjectId,
+		'toProjectId' => $toProjectId,
+		'offset' => $offset
+	];
+	$job = new \google\appengine\api\taskqueue\PushTask('/process/tasks', $params);
+	$task_name = $job->add();
+}
+
+function copyTasks($fromProjectId, $toProjectId, $offset = 0)
 {
     // GET Project
 	$result = asanaRequest("projects/$toProjectId");
@@ -584,7 +608,7 @@ function queueTask($workspaceId, $taskId, $newTaskId) {
 		'taskId' => $taskId,
 		'newTaskId' => $newTaskId
 	];
-	$job = new \google\appengine\api\taskqueue\PushTask('/tasks/process', $params);
+	$job = new \google\appengine\api\taskqueue\PushTask('/process/task', $params);
 	$task_name = $job->add();
 }
 
