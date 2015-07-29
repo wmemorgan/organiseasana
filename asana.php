@@ -186,6 +186,10 @@ function cleanTask($task) {
 		unset($task['assignee_status']);
 		if ($DEBUG) pre($task, "Removed Assignee Status ('Schedule status shouldn't be set for unassigned tasks')", 'warn');
 	}
+	if (isset($task['due_at'])) {
+		unset($task['due_on']);
+		if ($DEBUG) pre($task, "Removed double due time ('You may only provide one of due_on or due_at!')", 'warn');
+	}
 	
 	return $task;	
 }
