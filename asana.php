@@ -643,7 +643,7 @@ function copyTasks($fromProjectId, $toProjectId, $offset = 0)
 	}
 }
 
-function queueTask($workspaceId, $taskId, $newTaskId) {
+function queueTask($workspaceId, $taskId, $newTask) {
 	global $channel;
 	global $apiKey;
 
@@ -656,15 +656,16 @@ function queueTask($workspaceId, $taskId, $newTaskId) {
 		'copy' => 'task',
 		'workspaceId' => $workspaceId,
 		'taskId' => $taskId,
-		'newTaskId' => $newTaskId
+		'newTask' => $newTask
 	];
 	$job = new \google\appengine\api\taskqueue\PushTask('/process/task', $params);
 	$task_name = $job->add();
 }
 
-function copyTask($workspaceId, $taskId, $newTaskId) {
+function copyTask($workspaceId, $taskId, $newTask) {
 
     //copy history
+    $newTaskId=[$newTask['id']];
 	copyHistory($taskId, $newTaskId);
 
     //copy tags

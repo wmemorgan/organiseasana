@@ -7,6 +7,7 @@
 	include "asana.php";
 
 	if (isCancelled($channel)) {
+		pre("User cancelled job", null, "info");
 		return;
 	}
 
@@ -17,56 +18,71 @@
 	$teamId = $_POST['team'];
 
 	$projectOffset = 0;
-	if (isset($_POST['projectOffset']))
+	$currentProject = null;
+	if (isset($_POST['projectOffset'])) {
 		$projectOffset = $_POST['projectOffset'];
+		$currentProject = $_POST['currentProject'];
+	}
 
 	$taskOffset = -1;
 	if (isset($_POST['taskOffset']))
 		$taskOffset = $_POST['taskOffset'];
 
-	// Get some info
-	$team = null;
-	$targetWorkspace = getWorkspace($targetWorkspaceId);
-	if ($targetWorkspaceId && $projects) {
-		if (isOrganisation($targetWorkspace)) {
-			if ($teamId) {
-				$team = getTeam($targetWorkspaceId, $teamId);
-			}
-		}
-	}
-
-	$teamName = '';
-	if ($team) {
-		$teamName = '/' . $team['name'];
-	}
-
-	progress('Copying Projects to '. $targetWorkspace['name'] . $teamName);
-
-	for ($i = $projectOffset; $i < count($projects); $i++) {
-		$project = getProject($projects[$i], false);
-		$targetProjectName = $project['name'];
-
-		// Check for an existing project in the target workspace
-		$targetProjects = getProjects($targetWorkspaceId);
-		if ($DEBUG) pre($targetProjects);
-
-		$count = 2;
-		$found = false;
-		do {
-			$found = false;
-			for ($j = 0; $j < count($targetProjects); $j++) {
-				if (strcmp($targetProjects[$j]['name'], $targetProjectName) == 0) {
-					$targetProjectName = $project['name'] . ' ' . $count++;
-					$found = true;
-					break;
+	if ($taskOffset < 0) {
+		// Get some info
+		$team = null;
+		$targetWorkspace = getWorkspace($targetWorkspaceId);
+		if ($targetWorkspaceId && $projects) {
+			if (isOrganisation($targetWorkspace)) {
+				if ($teamId) {
+					$team = getTeam($targetWorkspaceId, $teamId);
 				}
 			}
 		}
-		while ($found == true && $count < 100);
 
-		// Create target project
-		progress('Copying ' . $project['name'] . ' to ' . $targetWorkspace['name'] . $teamName . '/' . $targetProjectName);
-		$targetProject = createProject($targetWorkspaceId, $targetProjectName, $teamId, $notes);
+		$teamName = '';
+		if ($team) {
+			$teamName = '/' . $team['name'];
+		}
+
+		progress('Copying Projects to '. $targetWorkspace['name'] . $teamName);
+	}
+
+	for ($i = $projectOffset; $i < count($projects); $i++) {
+		$project = getProject($projects[$i], false);
+
+		// Create a new project if we're not in the middle of an existing copy
+		if ($currentProject) {
+			$targetProject = $currentProject;
+			$currentProject = null;
+			$targetProjectName = $targetProject['name'];
+			progress('Continuing copy to ' . $targetProjectName);
+		} else {
+			$targetProjectName = $project['name'];
+
+			// Check for an existing project in the target workspace
+			$targetProjects = getProjects($targetWorkspaceId);
+			if ($DEBUG) pre($targetProjects);
+
+			$count = 2;
+			$found = false;
+			do {
+				$found = false;
+				for ($j = 0; $j < count($targetProjects); $j++) {
+					if (strcmp($targetProjects[$j]['name'], $targetProjectName) == 0) {
+						$targetProjectName = $project['name'] . ' ' . $count++;
+						$found = true;
+						break;
+					}
+				}
+			}
+			while ($found == true && $count < 100);
+
+			// Create target project
+			progress('Copying ' . $project['name'] . ' to ' . $targetWorkspace['name'] . $teamName . '/' . $targetProjectName);
+			$targetProject = createProject($targetWorkspaceId, $targetProjectName, $teamId, $notes);
+			notifyCreated($targetProject);
+		}
 
 		// Run copy
 		
@@ -74,6 +90,7 @@
 	    // TODO once OAuth is used, add support for external field
 	    $fromProjectId = $project['id'];
 	    $toProjectId = $targetProject['id'];
+	    incrementRequests(1);
 	    $result = asanaRequest("projects/$fromProjectId/tasks?opt_fields=assignee,assignee_status,completed,due_on,due_at,hearted,name,notes");
 		$tasks = $result['data'];
 
@@ -100,7 +117,7 @@
 			$rateLimit = getRateLimit();
 
 			if (isCancelled($channel)) {
-				pre("User cancelled job", null, "danger");
+				pre("User cancelled job", null, "info");
 				return;
 			}
 
@@ -115,7 +132,8 @@
 					'projects' => $projects,
 					'team' => $teamId,
 					'projectOffset' => $i,
-					'taskOffset' => $j
+					'taskOffset' => $j,
+					'currentProject' => $targetProject
 				];
 				$delay = 60;
 				if ($rateLimit > time()) {
@@ -143,17 +161,24 @@
 			}
 
 			$newTask = createTask($targetWorkspaceId, $toProjectId, $newTask);
-			$newTaskId = $newTask["id"];
 			
 			if ($APPENGINE) {
-				queueTask($targetWorkspaceId, $taskId, $newTaskId);
+				queueTask($targetWorkspaceId, $taskId, $newTask);
 			}
 			else {
-				copyTask($targetWorkspaceId, $taskId, $newTaskId);
+				copyTask($targetWorkspaceId, $taskId, $newTask);
 			}
 		}
 
-		notifyCreated($targetProject);
+		$params = [
+			'channel' => $channel,
+			'apiKey' => $apiKey
+		];
+		$delay = 60;
+		$options = ['delay_seconds' => $delay];
+		$task = new \google\appengine\api\taskqueue\PushTask('/process/complete', $params, $options);
+		$task_name = $task->add();
+
 	}
 
 ?>

@@ -12,6 +12,12 @@
 	$teamId = null;
 	$refresh = false;
 
+	// Has the job been cancelled?
+	if (isset($_POST["cancel"]) && $channel) {
+		cancel($channel);
+		return;
+	}
+
 	// Read parameters
 	if (isset($_POST["storeKey"]))
 		$storeKey = $_POST["storeKey"];
@@ -199,11 +205,10 @@ if($DEBUG >= 1) {
 							// Output script for listening to channel
 							?>
 
-							<input type="hidden" name="channel" value="<?php echo $channel; ?>">
-							<input type="hidden" name="cancel" value="1">
-							<input class="btn btn-danger pull-right" type="submit" value="Cancel" >
-
 							<h3 id="progress">Progress: 
+								<input type="hidden" name="channel" value="<?php echo $channel; ?>">
+								<input type="hidden" name="cancel" value="1">
+								<input class="btn btn-danger pull-right" type="submit" value="Cancel" >
 							</h3>
 
 							<div class="well" id="log">
@@ -230,13 +235,14 @@ if($DEBUG >= 1) {
 								});
 								channel.bind('error', function(data) {
 								  var message = JSON.stringify(data, null, 2);
-								  $('#log').append('<p class="text-danger"><pre>' + message + "</pre></p><br>");
+								  $('#log').append('<pre class="text-danger">' + message + "</pre><br>");
 								  $('#log').scrollTop(10000000);
 								});
 
 								$(function() { 
 						            $('#mainForm').ajaxForm(function() { 
-						                alert("Cancelling job..."); 
+									  $('#log').append('<p class="text-danger">Cancelling job...</p><br>');
+									  $('#log').scrollTop(10000000);
 						            }); 
 						        }); 
 							</script>

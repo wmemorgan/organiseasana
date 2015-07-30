@@ -1,5 +1,5 @@
 application: organise-asana
-version: 2
+version: 3
 runtime: php55
 api_version: 1
 
@@ -15,6 +15,9 @@ handlers:
   login: admin
 - url: /process/subtask
   script: process_subtask.php
+  login: admin
+- url: /process/complete
+  script: process_complete.php
   login: admin
 - url: /
   script: index.php
