@@ -3,9 +3,12 @@
 	 * On app engine, processes a task queue
 	 */
 
-	require __DIR__ . '/vendor/autoload.php';
 	include "init.php";
 	include "asana.php";
+
+	if (isCancelled($channel)) {
+		return;
+	}
 
 	// Get some info
 	$team = null;

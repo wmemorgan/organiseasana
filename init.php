@@ -2,7 +2,8 @@
 	date_default_timezone_set("UTC");
 	header('Content-Type: text/html; charset=utf-8');
 
-	require_once('config.php');
+	require_once __DIR__ . '/vendor/autoload.php';
+	require_once 'config.php';
 
 	global $DEBUG;
 	$DEBUG = false;

@@ -3,9 +3,12 @@
 	 * On app engine, processes a task queue
 	 */
 
-	require __DIR__ . '/vendor/autoload.php';
 	include "init.php";
 	include "asana.php";
+
+	if (isCancelled($channel)) {
+		return;
+	}
 
 	$subtaskId = $_POST['subtaskId'];
 	$newSubId = $_POST['newSubId'];

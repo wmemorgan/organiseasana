@@ -3,7 +3,6 @@
 	include "init.php";
 	include "asana.php";
 
-
 	// Input parameters
 	$storeKey = null;
 	$targetWorkspaceId = null;
@@ -80,6 +79,7 @@ if($DEBUG >= 1) {
 	<head>
 		<title>Organise Asana Projects</title>
 		<script src="//code.jquery.com/jquery-1.11.0.min.js"></script>
+		<script src="/jquery.form.js"></script>
 
 		<link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css">
 		<link rel="stylesheet" href="/theme.min.css">
@@ -141,7 +141,7 @@ if($DEBUG >= 1) {
 				still access the old version at <a href="http://asana-old.kothar.net">http://asana-old.kothar.net</a> while
 				I shake out any bugs.
 			</p>
-			<form role="form" method="POST">
+			<form id="mainForm" role="form" method="POST">
 				<div class="row">
 					<div class="col-sm-8">
 						<h2>Enter your API key to access Asana</h2>
@@ -198,7 +198,14 @@ if($DEBUG >= 1) {
 
 							// Output script for listening to channel
 							?>
-							<h3 id="progress">Progress:</h3>
+
+							<input type="hidden" name="channel" value="<?php echo $channel; ?>">
+							<input type="hidden" name="cancel" value="1">
+							<input class="btn btn-danger pull-right" type="submit" value="Cancel" >
+
+							<h3 id="progress">Progress: 
+							</h3>
+
 							<div class="well" id="log">
 								Waiting in queue...<br>
 							</div>
@@ -226,6 +233,12 @@ if($DEBUG >= 1) {
 								  $('#log').append('<p class="text-danger"><pre>' + message + "</pre></p><br>");
 								  $('#log').scrollTop(10000000);
 								});
+
+								$(function() { 
+						            $('#mainForm').ajaxForm(function() { 
+						                alert("Cancelling job..."); 
+						            }); 
+						        }); 
 							</script>
 							<?php
 						}

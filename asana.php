@@ -13,8 +13,7 @@ function asanaRequest($methodPath, $httpMethod = 'GET', $body = null, $cached = 
 	global $ratelimit;
 
 	$key = false;
-	$ratelimit = false;
-	$ratelimitKey = sha1($apiKey) . ":ratelimit";
+	$ratelimit = getRateLimit();
 
 	if ($APPENGINE && strcmp($httpMethod,'GET') == 0 && $cached) {
 		$key = sha1($apiKey) . ":" . $methodPath;
@@ -28,8 +27,6 @@ function asanaRequest($methodPath, $httpMethod = 'GET', $body = null, $cached = 
 		if ($data != false) {
 			return $data;
 		}
-
-		$ratelimit = getCached($ratelimitKey);
 	}
 
 	$url = "https://app.asana.com/api/1.0/$methodPath";
@@ -61,7 +58,7 @@ function asanaRequest($methodPath, $httpMethod = 'GET', $body = null, $cached = 
 				echo("Waiting for rate limit (". ($ratelimit - time()) . "s)");
 				time_sleep_until($ratelimit);
 			} else {
-				die ("Rate limit reached: retry in " . ($ratelimit - time()) . "s")
+				die ("Rate limit reached: retry in " . ($ratelimit - time()) . "s");
 			}
 		}
 
@@ -72,7 +69,7 @@ function asanaRequest($methodPath, $httpMethod = 'GET', $body = null, $cached = 
 
 		if(isset($result['retry_after'])) {
 			$ratelimit = time() + $result['retry_after'];
-			cache($ratelimitKey, $ratelimit);
+			setRateLimit($ratelimit);
 
 			if ($wait)
 				continue;
@@ -111,6 +108,59 @@ function getMemcache() {
 	if (!$memcache)
 		$memcache = new Memcache;
 	return $memcache;
+}
+
+function isCancelled($channel) {
+	global $apiKey;
+	$key = sha1($apiKey) . ":$channel:cancelled";
+	$cancelled = getMemcache()->get($key);
+	return $cancelled;
+}
+
+function cancel($channel) {
+	global $apiKey;
+	$key = sha1($apiKey) . ":$channel:cancelled";
+	$cancelled = getMemcache()->set($key, true);
+	return $cancelled;
+}
+
+function getPendingRequests() {
+	global $apiKey;
+	$key = sha1($apiKey) . ":issuedRequests:" + floor(time()/60);
+	$pending = getMemcache()->get($key);
+	return $pending;
+}
+
+function incrementRequests($value = 1) {
+	global $apiKey;
+	$key = sha1($apiKey) . ":issuedRequests:" + floor(time()/60);
+	$pending = getMemcache()->increment($key, $value);
+	if (!$pending) {
+		getMemcache()->set($key, $value, false, 120);
+		return $value;
+	}
+	return $pending;
+}
+
+function getRateLimit() {
+	global $APPENGINE;
+	global $apiKey;
+	$ratelimit = false;
+	if ($APPENGINE) {
+		$key = sha1($apiKey) . ":ratelimit";
+		$ratelimit = getMemcache()->get($key);
+	}
+	return $ratelimit;
+}
+
+function setRateLimit($ratelimit) {
+	global $APPENGINE;
+	global $apiKey;
+	if ($APPENGINE) {
+		$key = sha1($apiKey) . ":ratelimit";
+		getMemcache()->set($key, $ratelimit);
+	}
+	return $ratelimit;
 }
 
 function notifyCreated($project) {
@@ -230,7 +280,7 @@ function createTask($workspaceId, $projectId, $task)
 		$data = array('data' => $task);
 		$result = asanaRequest("workspaces/$workspaceId/tasks", 'POST', $data);
 	}
-	
+
 	// Check result
 	if (!isError($result))
 	{

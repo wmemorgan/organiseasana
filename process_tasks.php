@@ -3,31 +3,18 @@
 	 * On app engine, processes a task queue
 	 */
 
-	require __DIR__ . '/vendor/autoload.php';
 	include "init.php";
 	include "asana.php";
 
-	// Get some info
-	$team = null;
-	$targetWorkspace = getWorkspace($targetWorkspaceId);
-	if ($targetWorkspaceId && $projects) {
-		if (isOrganisation($targetWorkspace)) {
-			if ($teamId) {
-				$team = getTeam($targetWorkspaceId, $teamId);
-			}
-		}
+	if (isCancelled($channel)) {
+		return;
 	}
 
-	$teamName = '';
-	if ($team) {
-		$teamName = '/' . $team['name'];
-	}
+	$fromProjectId = $_POST['fromProjectId'];
+	$toProjectId = $_POST['toProjectId'];
+	$offset = $_POST['offset'];
 
-	$workspaceId = $_POST['workspaceId'];
-	$taskId = $_POST['taskId'];
-	$newTaskId = $_POST['newTaskId'];
-
-	progress('Copying task ' . $taskId);
-	copyTask($workspaceId, $taskId, $newTaskId);
+	progress('Copying tasks for ' . $fromProjectId);
+	copyTasks($fromProjectId, $toProjectId, $offset);
 
 ?>
