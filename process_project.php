@@ -174,9 +174,7 @@
 			'channel' => $channel,
 			'apiKey' => $apiKey
 		];
-		$delay = 60;
-		$options = ['delay_seconds' => $delay];
-		$task = new \google\appengine\api\taskqueue\PushTask('/process/complete', $params, $options);
+		$task = new \google\appengine\api\taskqueue\PushTask('/process/complete', $params);
 		$task_name = $task->add();
 
 	}

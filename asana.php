@@ -252,13 +252,6 @@ function cleanTask($task) {
 
 function createTask($workspaceId, $projectId, $task)
 {
-	if (!isset($task['name'])) {
-		p("Creating task with blank name");
-	}
-	else {
-		p("Creating task: " . $task['name']);
-	}
-
 	// Set projects
 	$task['projects'] = array($projectId);
 
