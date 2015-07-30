@@ -625,13 +625,12 @@ function copyTasks($fromProjectId, $toProjectId, $offset = 0)
 		}
 
 		$newTask = createTask($workspaceId, $toProjectId, $newTask);
-		$newTaskId = $newTask["id"];
 		
 		if ($APPENGINE) {
-			queueTask($workspaceId, $taskId, $newTaskId);
+			queueTask($workspaceId, $taskId, $newTask);
 		}
 		else {
-			copyTask($workspaceId, $taskId, $newTaskId);
+			copyTask($workspaceId, $taskId, $newTask);
 		}
 	}
 }
@@ -658,7 +657,7 @@ function queueTask($workspaceId, $taskId, $newTask) {
 function copyTask($workspaceId, $taskId, $newTask) {
 
     //copy history
-    $newTaskId=[$newTask['id']];
+    $newTaskId=$newTask['id'];
 	copyHistory($taskId, $newTaskId);
 
     //copy tags

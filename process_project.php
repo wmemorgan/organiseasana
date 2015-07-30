@@ -15,7 +15,10 @@
 	$targetWorkspaceId = $_POST['targetWorkspace'];
 	$workspaceId = $_POST['workspace'];
 	$projects = $_POST['projects'];
-	$teamId = $_POST['team'];
+
+	$teamId = false;
+	if (isset($_POST['team']))
+		$teamId = $_POST['team'];
 
 	$projectOffset = 0;
 	$currentProject = null;
@@ -50,6 +53,7 @@
 
 	for ($i = $projectOffset; $i < count($projects); $i++) {
 		$project = getProject($projects[$i], false);
+		$notes = $project['notes'];
 
 		// Create a new project if we're not in the middle of an existing copy
 		if ($currentProject) {
@@ -174,7 +178,9 @@
 			'channel' => $channel,
 			'apiKey' => $apiKey
 		];
-		$task = new \google\appengine\api\taskqueue\PushTask('/process/complete', $params);
+		$delay = 60;
+		$options = ['delay_seconds' => $delay];
+		$task = new \google\appengine\api\taskqueue\PushTask('/process/complete', $params, $options);
 		$task_name = $task->add();
 
 	}
