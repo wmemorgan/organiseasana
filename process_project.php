@@ -31,23 +31,23 @@
 	if (isset($_POST['taskOffset']))
 		$taskOffset = $_POST['taskOffset'];
 
-	if ($taskOffset < 0) {
-		// Get some info
-		$team = null;
-		$targetWorkspace = getWorkspace($targetWorkspaceId);
-		if ($targetWorkspaceId && $projects) {
-			if (isOrganisation($targetWorkspace)) {
-				if ($teamId) {
-					$team = getTeam($targetWorkspaceId, $teamId);
-				}
+	// Get some info
+	$team = null;
+	$targetWorkspace = getWorkspace($targetWorkspaceId);
+	if ($targetWorkspaceId && $projects) {
+		if (isOrganisation($targetWorkspace)) {
+			if ($teamId) {
+				$team = getTeam($targetWorkspaceId, $teamId);
 			}
 		}
+	}
 
-		$teamName = '';
-		if ($team) {
-			$teamName = '/' . $team['name'];
-		}
+	$teamName = '';
+	if ($team) {
+		$teamName = '/' . $team['name'];
+	}
 
+	if ($taskOffset < 0) {
 		progress('Copying Projects to '. $targetWorkspace['name'] . $teamName);
 	}
 
