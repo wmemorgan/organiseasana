@@ -126,14 +126,14 @@ function cancel($channel) {
 
 function getPendingRequests() {
 	global $apiKey;
-	$key = sha1($apiKey) . ":issuedRequests:" + floor(time()/60);
+	$key = sha1($apiKey) . ":issuedRequests:" . floor(time()/60);
 	$pending = getMemcache()->get($key);
 	return $pending;
 }
 
 function incrementRequests($value = 1) {
 	global $apiKey;
-	$key = sha1($apiKey) . ":issuedRequests:" + floor(time()/60);
+	$key = sha1($apiKey) . ":issuedRequests:" . floor(time()/60);
 	$pending = getMemcache()->increment($key, $value);
 	if (!$pending) {
 		getMemcache()->set($key, $value, false, 120);
