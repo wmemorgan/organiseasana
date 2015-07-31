@@ -2,6 +2,7 @@ application: organise-asana
 version: 3
 runtime: php55
 api_version: 1
+threadsafe: true
 
 handlers:
 - url: /process/project
