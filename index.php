@@ -234,8 +234,8 @@ if($DEBUG >= 1) {
 								  pusher.unsubscribe("<?php echo $channel; ?>");
 								});
 								channel.bind('error', function(data) {
-								  var message = JSON.stringify(data, null, 2);
-								  $('#log').append('<pre class="text-danger">' + message + "</pre><br>");
+								  var message = JSON.stringify(data.api_response, null, 2);
+								  $('#log').append('<h2>' + data.error + '</h2><pre class="text-danger">' + message + "</pre><br>");
 								  $('#log').scrollTop(10000000);
 								});
 

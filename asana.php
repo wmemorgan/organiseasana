@@ -90,15 +90,23 @@ function asanaRequest($methodPath, $httpMethod = 'GET', $body = null, $cached = 
 function cache($key, $result) {
 	global $APPENGINE;
 	if ($APPENGINE && $key) {
-		getMemcache()->set($key, $result, false, 120);
+		try {
+			getMemcache()->set($key, $result, false, 120);
+		} catch (Exception $e) {
+			
+		}
 	}
 }
 
 function getCached($key) {
 	global $APPENGINE;
 	if ($APPENGINE) {
-		$data = getMemcache()->get($key);
-		return $data;
+		try {
+			$data = getMemcache()->get($key);
+			return $data;
+		} catch (Exception $e) {
+			
+		}
 	}
 	return null;
 }
@@ -187,9 +195,10 @@ function error($body, $title, $style) {
 	global $pusher;
 	global $channel;
 	if ($pusher) {
-		$pusher->trigger($channel, 'error', $body);
+		$error = array ('error' => $title, 'api_response' => $body);
+		$pusher->trigger($channel, 'error', $error);
 		if (strcmp($style, 'danger') == 0)
-			throw new Exception(json_encode($body, JSON_PRETTY_PRINT));
+			throw new Exception(json_encode($error, JSON_PRETTY_PRINT));
 	} else {
 		print '<div class="bs-callout bs-callout-' . $style . '">';
 		if ($title)
@@ -417,7 +426,7 @@ function copyHistory($taskId, $newTaskId) {
 	$result = asanaRequest("tasks/$taskId/stories");
 	if (isError($result))
 	{
-        pre($result, "Failed to list tags in target workspace!", 'danger');
+        pre($result, "Failed to copy history from source task!", 'danger');
 		return;
 	}
 
