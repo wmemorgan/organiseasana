@@ -48,8 +48,8 @@
 	}
 
 	// Store for 90 days
-	if ($apiKey && $storeKey) {
-		setcookie("apiKey", $apiKey, time()+60*60*24*90);
+	if ($authToken && $storeKey) {
+		setcookie("authToken", $authToken, time()+60*60*24*90);
 	}
 
 if($DEBUG >= 1) {
@@ -71,7 +71,7 @@ if($DEBUG >= 1) {
 	print(json_encode(array(
 		"APPENGINE" => $APPENGINE, 
 		"DEBUG" => $DEBUG,
-		"apiKey" => $apiKey
+		"authToken" => $authToken
 		), JSON_PRETTY_PRINT));
 	print "</pre>\n";
 	flush(); ?>
@@ -142,22 +142,20 @@ if($DEBUG >= 1) {
 				Copy <a href="https://asana.com" target="asana">Asana</a> projects from one workspace to another.
 			</p>
 			<p>
-				<b>Update 27th July 2015:</b> I've moved the tool to a new server to allow me to make some of the improvements that have been
-				requested. Unfortunately that's caused a few teething problems. If something isn't working for you, you can
-				still access the old version at <a href="http://asana-old.kothar.net">http://asana-old.kothar.net</a> while
-				I shake out any bugs.
+				<b>Update 24th March 2016:</b> Asana have discontinued the supply of API keys, so I've implemented the proper OAuth login flow. Sorry it took so long!
 			</p>
 			<form id="mainForm" role="form" method="POST">
 				<div class="row">
 					<div class="col-sm-8">
-						<h2>Enter your API key to access Asana</h2>
-						<label>API Key: <input type="text" name="apiKey" value="<?php echo $apiKey ?>"></label>
-						<button class="btn btn-primary btn-sm" type="submit">Submit</button><br>
-						<label><input type="checkbox" name="storeKey" value="1"> Remember key (stores cookie)</label>
+						<?php if ($authToken) { ?>
+							<a href="/deauth" class="btn btn-danger">Log out</a>
+						<?php } else { ?>
+							<a href="/auth" class="btn btn-primary">Login with Asana</a>
+						<?php } ?>
 					</div>
 				</div>
 
-				<?php if ($apiKey) {
+				<?php if ($authToken) {
 
 					$targetWorkspace = null;
 					$team = null;
@@ -192,7 +190,8 @@ if($DEBUG >= 1) {
 
 							$params = [
 								'channel' => $channel,
-								'apiKey' => $apiKey,
+								'authToken' => $authToken,
+								'debug' => $DEBUG,
 								'targetWorkspace' => $targetWorkspaceId,
 								'copy' => 'projects',
 								'workspace' => $workspaceId,

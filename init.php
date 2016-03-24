@@ -11,6 +11,8 @@
 		$DEBUG = $_COOKIE["debug"];
 	if (isset($_GET["debug"]))
 		$DEBUG = $_GET["debug"];
+	if (isset($_POST["debug"]))
+		$DEBUG = $_POST["debug"];
 
 	if ($DEBUG) {
 		setcookie("debug", $DEBUG);
@@ -31,13 +33,15 @@
 	);
 
 
-	global $apiKey;
-	$apiKey = "";
+	global $authToken;
+	$authToken = "";
 
-	if (isset($_COOKIE["apiKey"]))
-		$apiKey = $_COOKIE["apiKey"];
-	if (isset($_POST["apiKey"]))
-		$apiKey = $_POST["apiKey"];
+	if (isset($_COOKIE["auth_token"]))
+		$authToken = $_COOKIE["auth_token"];
+	if (isset($_POST["authToken"]))
+		$authToken = $_POST["authToken"];
+	if (isset($_GET["authToken"]))
+		$authToken = $_GET["authToken"];
 
 
 	global $channel;

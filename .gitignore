@@ -1,4 +1,9 @@
 *.sublime-*
 .idea
+acme/
 config.php
 vendor/pusher/pusher-php-server/test
+vendor/asana/asana/tests
+vendor/nategood/httpful/examples
+vendor/nategood/httpful/tests
+vendor/asana/asana/src/Asana/Test

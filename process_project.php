@@ -130,7 +130,7 @@
 				// Re-queue task creation at the current point
 				$params = [
 					'channel' => $channel,
-					'apiKey' => $apiKey,
+					'authToken' => $authToken,
 					'targetWorkspace' => $targetWorkspaceId,
 					'workspace' => $workspaceId,
 					'projects' => $projects,
@@ -176,7 +176,7 @@
 
 		$params = [
 			'channel' => $channel,
-			'apiKey' => $apiKey
+			'authToken' => $authToken
 		];
 		$delay = 60;
 		$options = ['delay_seconds' => $delay];

@@ -7,7 +7,7 @@
 
 function asanaRequest($methodPath, $httpMethod = 'GET', $body = null, $cached = true, $wait = true)
 {
-	global $apiKey;
+	global $authToken;
 	global $DEBUG;
 	global $APPENGINE;
 	global $ratelimit;
@@ -16,7 +16,7 @@ function asanaRequest($methodPath, $httpMethod = 'GET', $body = null, $cached = 
 	$ratelimit = getRateLimit();
 
 	if ($APPENGINE && strcmp($httpMethod,'GET') == 0 && $cached) {
-		$key = sha1($apiKey) . ":" . $methodPath;
+		$key = sha1($authToken) . ":" . $methodPath;
 
 		$data = getCached($key);
 
@@ -30,12 +30,15 @@ function asanaRequest($methodPath, $httpMethod = 'GET', $body = null, $cached = 
 	}
 
 	$url = "https://app.asana.com/api/1.0/$methodPath";
+	$headers = array(
+		"Content-type: application/json",
+		"Authorization: Bearer $authToken"
+	);
 	$ch = curl_init();
 	curl_setopt($ch, CURLOPT_URL, $url);
-	curl_setopt($ch, CURLOPT_HTTPAUTH, CURLAUTH_BASIC ) ;
-	curl_setopt($ch, CURLOPT_USERPWD, $apiKey);
 	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
 	curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $httpMethod);
+	curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
 
     // SSL cert of Asana is selfmade
     curl_setopt ($ch, CURLOPT_SSL_VERIFYHOST, 0);
@@ -48,7 +51,6 @@ function asanaRequest($methodPath, $httpMethod = 'GET', $body = null, $cached = 
 		{
 			$jbody = json_encode($body);
 		}
-		curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: application/json'));
 		curl_setopt($ch, CURLOPT_POSTFIELDS, $jbody);
 	}
 
@@ -136,29 +138,29 @@ function getMemcache() {
 }
 
 function isCancelled($channel) {
-	global $apiKey;
-	$key = sha1($apiKey) . ":$channel:cancelled";
+	global $authToken;
+	$key = sha1($authToken) . ":$channel:cancelled";
 	$cancelled = getMemcache()->get($key);
 	return $cancelled;
 }
 
 function cancel($channel) {
-	global $apiKey;
-	$key = sha1($apiKey) . ":$channel:cancelled";
+	global $authToken;
+	$key = sha1($authToken) . ":$channel:cancelled";
 	$cancelled = getMemcache()->set($key, true);
 	return $cancelled;
 }
 
 function getPendingRequests() {
-	global $apiKey;
-	$key = sha1($apiKey) . ":issuedRequests:" . floor(time()/60);
+	global $authToken;
+	$key = sha1($authToken) . ":issuedRequests:" . floor(time()/60);
 	$pending = getMemcache()->get($key);
 	return $pending;
 }
 
 function incrementRequests($value = 1) {
-	global $apiKey;
-	$key = sha1($apiKey) . ":issuedRequests:" . floor(time()/60);
+	global $authToken;
+	$key = sha1($authToken) . ":issuedRequests:" . floor(time()/60);
 	$pending = getMemcache()->increment($key, $value);
 	if (!$pending) {
 		getMemcache()->set($key, $value, false, 120);
@@ -169,10 +171,10 @@ function incrementRequests($value = 1) {
 
 function getRateLimit() {
 	global $APPENGINE;
-	global $apiKey;
+	global $authToken;
 	$ratelimit = false;
 	if ($APPENGINE) {
-		$key = sha1($apiKey) . ":ratelimit";
+		$key = sha1($authToken) . ":ratelimit";
 		$ratelimit = getMemcache()->get($key);
 	}
 	return $ratelimit;
@@ -180,9 +182,9 @@ function getRateLimit() {
 
 function setRateLimit($ratelimit) {
 	global $APPENGINE;
-	global $apiKey;
+	global $authToken;
 	if ($APPENGINE) {
-		$key = sha1($apiKey) . ":ratelimit";
+		$key = sha1($authToken) . ":ratelimit";
 		getMemcache()->set($key, $ratelimit);
 	}
 	return $ratelimit;
@@ -408,19 +410,21 @@ function copySubtasks($taskId, $newTaskId, $depth, $workspaceId) {
 
 function queueSubtask($subtaskId, $newSubId, $workspaceId, $depth) {
 	global $channel;
-	global $apiKey;
+	global $authToken;
+	global $DEBUG;
 
 	// Start task
 	require_once("google/appengine/api/taskqueue/PushTask.php");
 
 	$params = [
 		'channel' => $channel,
-		'apiKey' => $apiKey,
+		'authToken' => $authToken,
 		'copy' => 'subtask',
 		'subtaskId' => $subtaskId,
 		'newSubId' => $newSubId,
 		'workspaceId' => $workspaceId,
-		'depth' => $depth
+		'depth' => $depth,
+		'debug' => $DEBUG
 	];
 	$job = new \google\appengine\api\taskqueue\PushTask('/process/subtask', $params);
 	$task_name = $job->add();
@@ -597,17 +601,19 @@ function getProject($projectId) {
 
 function queueTasks($fromProjectId, $toProjectId, $offset = 0) {
 	global $channel;
-	global $apiKey;
+	global $authToken;
+	global $DEBUG;
 
 	// Start task
 	require_once("google/appengine/api/taskqueue/PushTask.php");
 
 	$params = [
 		'channel' => $channel,
-		'apiKey' => $apiKey,
+		'authToken' => $authToken,
 		'fromProjectId' => $fromProjectId,
 		'toProjectId' => $toProjectId,
-		'offset' => $offset
+		'offset' => $offset,
+		'debug' => $DEBUG
 	];
 	$job = new \google\appengine\api\taskqueue\PushTask('/process/tasks', $params);
 	$task_name = $job->add();
@@ -663,18 +669,20 @@ function copyTasks($fromProjectId, $toProjectId, $offset = 0)
 
 function queueTask($workspaceId, $taskId, $newTask) {
 	global $channel;
-	global $apiKey;
+	global $authToken;
+	global $DEBUG;
 
 	// Start task
 	require_once("google/appengine/api/taskqueue/PushTask.php");
 
 	$params = [
 		'channel' => $channel,
-		'apiKey' => $apiKey,
+		'authToken' => $authToken,
 		'copy' => 'task',
 		'workspaceId' => $workspaceId,
 		'taskId' => $taskId,
-		'newTask' => $newTask
+		'newTask' => $newTask,
+		'debug' => $DEBUG
 	];
 	$job = new \google\appengine\api\taskqueue\PushTask('/process/task', $params);
 	$task_name = $job->add();

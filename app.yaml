@@ -17,6 +17,10 @@ handlers:
 - url: /process/complete
   script: process_complete.php
   login: admin
+- url: /auth
+  script: auth.php
+- url: /deauth
+  script: deauth.php
 - url: /
   script: index.php
 # All URLs ending in .gif .png or .jpg are treated as paths to static files in
@@ -25,3 +29,8 @@ handlers:
 - url: /(.*\.(gif|png|jpg|ico|css|js|txt))$
   static_files: static/\1
   upload: static/.*\.(gif|png|jpg|ico|css|js|txt)$
+
+# Map the acme folder for letsencrypt
+- url: /\.well-known/acme-challenge/(.*)$
+  static_files: acme/\1
+  upload: acme/.*
