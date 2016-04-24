@@ -49,11 +49,12 @@ class Client
         $this->teams = new Resources\Teams($this);
         $this->users = new Resources\Users($this);
         $this->workspaces = new Resources\Workspaces($this);
+        $this->webhooks = new Resources\Webhooks($this);
     }
 
-    public static function basicAuth($apiKey, $options = array())
+    public static function accessToken($accessToken, $options = array())
     {
-        return new Client(new Dispatcher\BasicAuthDispatcher($apiKey), $options);
+        return new Client(new Dispatcher\AccessTokenDispatcher($accessToken), $options);
     }
 
     public static function oauth($credentials = array(), $options = array())

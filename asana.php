@@ -16,7 +16,7 @@ function asanaRequest($methodPath, $httpMethod = 'GET', $body = null, $cached = 
 	$ratelimit = getRateLimit();
 
 	if ($APPENGINE && strcmp($httpMethod,'GET') == 0 && $cached) {
-		$key = sha1($authToken) . ":" . $methodPath;
+		$key = sha1($authToken['refresh_token']) . ":" . $methodPath;
 
 		$data = getCached($key);
 
@@ -29,10 +29,40 @@ function asanaRequest($methodPath, $httpMethod = 'GET', $body = null, $cached = 
 		}
 	}
 
+	$access_token = $authToken['access_token'];
+	// Check for expiry
+	$refresh = time() + 600;
+	if (!$access_token || $authToken['expires'] < $refresh) {
+		// Look for an already-refreshed token
+		$tokenKey = sha1($authToken['refresh_token']) . ":access_token";
+		$refreshed_token = getCached($tokenKey);
+		
+		if ($refreshed_token && $refreshed_token['expires'] > $refresh) {
+			$access_token = $refreshed_token['access_token'];
+			$authToken['access_token'] = $refreshed_token['access_token'];
+			$authToken['expires'] = $refreshed_token['expires'];
+		} else {
+			// Refresh the token
+			global $asana_app;
+			$asana_config = $asana_app[$authToken['host']];
+			$client = Asana\Client::oauth(array(
+			    'client_id' => $asana_config['key'],
+			    'client_secret' => $asana_config['secret'],
+			    'redirect_uri' => $asana_config['redirect'],
+			    'refresh_token' => $authToken['refresh_token']
+			));
+			$access_token = $client->dispatcher->refreshAccessToken();
+			$authToken['access_token'] = $access_token;
+			$authToken['expires'] = time() + $client->dispatcher->expiresIn;
+
+			cache($tokenKey, $authToken);
+		}
+	}
+
 	$url = "https://app.asana.com/api/1.0/$methodPath";
 	$headers = array(
 		"Content-type: application/json",
-		"Authorization: Bearer $authToken"
+		"Authorization: Bearer $access_token"
 	);
 	$ch = curl_init();
 	curl_setopt($ch, CURLOPT_URL, $url);
@@ -139,28 +169,28 @@ function getMemcache() {
 
 function isCancelled($channel) {
 	global $authToken;
-	$key = sha1($authToken) . ":$channel:cancelled";
+	$key = sha1($authToken['refresh_token']) . ":$channel:cancelled";
 	$cancelled = getMemcache()->get($key);
 	return $cancelled;
 }
 
 function cancel($channel) {
 	global $authToken;
-	$key = sha1($authToken) . ":$channel:cancelled";
+	$key = sha1($authToken['refresh_token']) . ":$channel:cancelled";
 	$cancelled = getMemcache()->set($key, true);
 	return $cancelled;
 }
 
 function getPendingRequests() {
 	global $authToken;
-	$key = sha1($authToken) . ":issuedRequests:" . floor(time()/60);
+	$key = sha1($authToken['refresh_token']) . ":issuedRequests:" . floor(time()/60);
 	$pending = getMemcache()->get($key);
 	return $pending;
 }
 
 function incrementRequests($value = 1) {
 	global $authToken;
-	$key = sha1($authToken) . ":issuedRequests:" . floor(time()/60);
+	$key = sha1($authToken['refresh_token']) . ":issuedRequests:" . floor(time()/60);
 	$pending = getMemcache()->increment($key, $value);
 	if (!$pending) {
 		getMemcache()->set($key, $value, false, 120);
@@ -174,7 +204,7 @@ function getRateLimit() {
 	global $authToken;
 	$ratelimit = false;
 	if ($APPENGINE) {
-		$key = sha1($authToken) . ":ratelimit";
+		$key = sha1($authToken['refresh_token']) . ":ratelimit";
 		$ratelimit = getMemcache()->get($key);
 	}
 	return $ratelimit;
@@ -184,7 +214,7 @@ function setRateLimit($ratelimit) {
 	global $APPENGINE;
 	global $authToken;
 	if ($APPENGINE) {
-		$key = sha1($authToken) . ":ratelimit";
+		$key = sha1($authToken['refresh_token']) . ":ratelimit";
 		getMemcache()->set($key, $ratelimit);
 	}
 	return $ratelimit;

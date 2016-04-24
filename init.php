@@ -34,15 +34,14 @@
 
 
 	global $authToken;
-	$authToken = "";
+	$authToken = false;
 
 	if (isset($_COOKIE["auth_token"]))
-		$authToken = $_COOKIE["auth_token"];
+		$authToken = json_decode($_COOKIE["auth_token"], true);
 	if (isset($_POST["authToken"]))
 		$authToken = $_POST["authToken"];
 	if (isset($_GET["authToken"]))
 		$authToken = $_GET["authToken"];
-
 
 	global $channel;
 	$channel = null;

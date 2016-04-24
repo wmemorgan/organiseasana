@@ -4,8 +4,8 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
         "This file is @generated automatically"
     ],
-    "hash": "e42466610854f7408f0dcc01ef3872fe",
-    "content-hash": "5f23b623d7e6e5ec34712af0f9a270dd",
+    "hash": "954cdbb01905dda6ec20ed05a9ad2f49",
+    "content-hash": "3a46cc6065b1326ed0f39cea1f1c23b3",
     "packages": [
         {
             "name": "adoy/oauth2",
@@ -49,16 +49,16 @@
         },
         {
             "name": "asana/asana",
-            "version": "v0.1.4",
+            "version": "v0.4.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/Asana/php-asana.git",
-                "reference": "d4a3966277ef855e22c8bc57c7970f576a83fbab"
+                "reference": "fb058b834a7f52e8dd77e7e81f6099fcb2c6e77c"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/Asana/php-asana/zipball/d4a3966277ef855e22c8bc57c7970f576a83fbab",
-                "reference": "d4a3966277ef855e22c8bc57c7970f576a83fbab",
+                "url": "https://api.github.com/repos/Asana/php-asana/zipball/fb058b834a7f52e8dd77e7e81f6099fcb2c6e77c",
+                "reference": "fb058b834a7f52e8dd77e7e81f6099fcb2c6e77c",
                 "shasum": ""
             },
             "require": {
@@ -86,7 +86,7 @@
                 "asana",
                 "client"
             ],
-            "time": "2015-09-16 01:39:38"
+            "time": "2016-03-04 01:49:29"
         },
         {
             "name": "nategood/httpful",

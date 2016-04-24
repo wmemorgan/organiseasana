@@ -141,17 +141,17 @@
     },
     {
         "name": "asana/asana",
-        "version": "v0.1.4",
-        "version_normalized": "0.1.4.0",
+        "version": "v0.4.1",
+        "version_normalized": "0.4.1.0",
         "source": {
             "type": "git",
             "url": "https://github.com/Asana/php-asana.git",
-            "reference": "d4a3966277ef855e22c8bc57c7970f576a83fbab"
+            "reference": "fb058b834a7f52e8dd77e7e81f6099fcb2c6e77c"
         },
         "dist": {
             "type": "zip",
-            "url": "https://api.github.com/repos/Asana/php-asana/zipball/d4a3966277ef855e22c8bc57c7970f576a83fbab",
-            "reference": "d4a3966277ef855e22c8bc57c7970f576a83fbab",
+            "url": "https://api.github.com/repos/Asana/php-asana/zipball/fb058b834a7f52e8dd77e7e81f6099fcb2c6e77c",
+            "reference": "fb058b834a7f52e8dd77e7e81f6099fcb2c6e77c",
             "shasum": ""
         },
         "require": {
@@ -163,7 +163,7 @@
             "instaclick/php-code-sniffer": "dev-master",
             "phpunit/phpunit": "4.5.*"
         },
-        "time": "2015-09-16 01:39:38",
+        "time": "2016-03-04 01:49:29",
         "type": "library",
         "installation-source": "dist",
         "autoload": {

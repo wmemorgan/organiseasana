@@ -3,6 +3,9 @@
 	include "init.php";
 	include "asana.php";
 
+	global $pusher;
+	$pusher = false;
+
 	// Input parameters
 	$storeKey = null;
 	$targetWorkspaceId = null;
@@ -45,11 +48,6 @@
 			if (isset($_POST["team"]))
 				$teamId = $_POST["team"];
 		}
-	}
-
-	// Store for 90 days
-	if ($authToken && $storeKey) {
-		setcookie("authToken", $authToken, time()+60*60*24*90);
 	}
 
 if($DEBUG >= 1) {
@@ -143,6 +141,9 @@ if($DEBUG >= 1) {
 			</p>
 			<p>
 				<b>Update 24th March 2016:</b> Asana have discontinued the supply of API keys, so I've implemented the proper OAuth login flow. Sorry it took so long!
+			</p>
+			<p>
+				<b>Update 24th April 2016:</b> Copy jobs for large projects which take over 1 hour should now work without complaining about the OAuth tokens expiring.
 			</p>
 			<form id="mainForm" role="form" method="POST">
 				<div class="row">
