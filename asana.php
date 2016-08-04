@@ -462,14 +462,72 @@ function queueSubtask($subtaskId, $newSubId, $workspaceId, $depth) {
 
 function copySubtask($subtaskId, $newSubId, $workspaceId, $depth) {
 
-    // add History
     copyHistory($subtaskId, $newSubId);
-
-    //copy tags
     copyTags($subtaskId, $newSubId, $workspaceId);
+    copyAttachments($subtaskId, $newSubId, $workspaceId);
 
-    // subtask of subtask?
     copySubtasks($subtaskId, $newSubId, $depth, $workspaceId);
+}
+
+function copyAttachments($taskId, $newTaskId, $workspaceId) {
+	$result = asanaRequest("tasks/$taskId/attachments");
+	if (isError($result))
+	{
+        pre($result, "Failed to copy attachments from source task!", 'danger');
+		return;
+	}
+
+	global $APPENGINE;
+
+	foreach ($result['data'] as $attachment){
+
+		if ($APPENGINE) {
+			queueAttachment($taskId, $newTask, $attachment["id"], $attachment["name"], $workspaceId);
+		}
+		else {
+			copyAttachment($taskId, $newTask, $attachment["id"], $attachment["name"], $workspaceId);
+		}
+	}
+}
+
+
+function queueAttachment($taskId, $newTask, $attachmentId, $attachmentName, $workspaceId) {
+	global $channel;
+	global $authToken;
+	global $DEBUG;
+
+	// Start task
+	require_once("google/appengine/api/taskqueue/PushTask.php");
+
+	$params = [
+		'channel' => $channel,
+		'authToken' => $authToken,
+		'taskId' => $taskId,
+		'newTaskId' => $newTaskId,
+		'attachmentId' => $attachmentId,
+		'attachmentName' => $attachmentName,
+		'debug' => $DEBUG
+	];
+	$job = new \google\appengine\api\taskqueue\PushTask('/process/attachment', $params);
+	$task_name = $job->add('attachments');
+}
+
+function copyAttachment($taskId, $newTask, $attachmentId, $attachmentName, $workspaceId) {
+
+	// Get attachment details
+	$result = asanaRequest("attachments/$attachmentId");
+	if (isError($result))
+	{
+        pre($result, "Failed to load attachment details!", 'danger');
+		return;
+	}
+
+    // Get attachment content stream
+    $downloadUrl = $result['data']['download_url'];
+    $content = fopen($download_url, 'r')
+
+	// Upload to destination task
+
 }
 
 function copyHistory($taskId, $newTaskId) {
@@ -720,14 +778,11 @@ function queueTask($workspaceId, $taskId, $newTask) {
 
 function copyTask($workspaceId, $taskId, $newTask) {
 
-    //copy history
     $newTaskId=$newTask['id'];
 	copyHistory($taskId, $newTaskId);
-
-    //copy tags
     copyTags($taskId, $newTaskId, $workspaceId);
+    copyAttachments($taskId, $newTaskId, $workspaceId);
 
-    //implement copying of subtasks
     $depth = 0;
     copySubtasks($taskId, $newTaskId, $depth, $workspaceId);
 }
