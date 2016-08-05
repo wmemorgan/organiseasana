@@ -13,7 +13,6 @@ function asanaRequest($methodPath, $httpMethod = 'GET', $body = null, $cached = 
 	global $ratelimit;
 
 	$key = false;
-	$ratelimit = getRateLimit();
 
 	if ($APPENGINE && strcmp($httpMethod,'GET') == 0 && $cached) {
 		$key = sha1($authToken['refresh_token']) . ":" . $methodPath;
@@ -29,6 +28,95 @@ function asanaRequest($methodPath, $httpMethod = 'GET', $body = null, $cached = 
 		}
 	}
 
+	$access_token = getAccessToken();
+	$ratelimit = getRateLimit();
+
+	$url = "https://app.asana.com/api/1.0/$methodPath";
+	$headers = array(
+		"Content-type: application/json",
+		"Authorization: Bearer $access_token"
+	);
+	$ch = curl_init();
+	curl_setopt($ch, CURLOPT_URL, $url);
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+	curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $httpMethod);
+	curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+
+    // SSL cert of Asana is selfmade
+    // curl_setopt ($ch, CURLOPT_SSL_VERIFYHOST, 0);
+    // curl_setopt ($ch, CURLOPT_SSL_VERIFYPEER, 0);
+
+	$jbody = $body;
+	if ($jbody)
+	{
+		if (!is_string($jbody))
+		{
+			$jbody = json_encode($body);
+		}
+		curl_setopt($ch, CURLOPT_POSTFIELDS, $jbody);
+	}
+
+	for ($i = 0; $i < 10; $i++) {
+		if ($ratelimit > time()) {
+			if ($wait) {
+				echo("Waiting for rate limit (". ($ratelimit - time()) . "s)");
+				time_sleep_until($ratelimit);
+			} else {
+				die ("Rate limit reached: retry in " . ($ratelimit - time()) . "s");
+			}
+		}
+
+		$data = curl_exec($ch);
+		$error = curl_error($ch);
+		$result = parseAsanaResponse($data);
+
+		if(isset($result['retry_after'])) {
+			$ratelimit = time() + $result['retry_after'];
+			setRateLimit($ratelimit);
+
+			if ($wait)
+				continue;
+		}
+		break;
+	}
+
+	curl_close($ch);
+
+	cache($key, $result);
+
+	if ($DEBUG >= 2) {
+		pre(array('request' => $body, 'response' => $result), "$httpMethod " . $url);
+	}
+	return $result;
+}
+
+function parseAsanaResponse($data) {
+	$result = null;
+
+	// See http://stackoverflow.com/a/27909889/37416
+	if (version_compare(PHP_VERSION, '5.4.0', '>=') && !(defined('JSON_C_VERSION') && PHP_INT_SIZE > 4)) {
+	    /** In PHP >=5.4.0, json_decode() accepts an options parameter, that allows you
+	     * to specify that large ints (like Steam Transaction IDs) should be treated as
+	     * strings, rather than the PHP default behaviour of converting them to floats.
+	     */
+	    $result = json_decode($data, true, 512, JSON_BIGINT_AS_STRING);
+	} else {
+	    /** Not all servers will support that, however, so for older versions we must
+	     * manually detect large ints in the JSON string and quote them (thus converting
+	     *them to strings) before decoding, hence the preg_replace() call.
+	     */
+	    $max_int_length = strlen((string) PHP_INT_MAX) - 1;
+	    $json_without_bigints = preg_replace('/:\s*(-?\d{'.$max_int_length.',})/', ': "$1"', $data);
+	    $result = json_decode($json_without_bigints, true);
+	}
+	// $result = json_decode($data, true);
+
+	return $result;
+}
+
+function getAccessToken() {
+
+	global $authToken;
 	$access_token = $authToken['access_token'];
 	// Check for expiry
 	$refresh = time() + 600;
@@ -59,81 +147,7 @@ function asanaRequest($methodPath, $httpMethod = 'GET', $body = null, $cached = 
 		}
 	}
 
-	$url = "https://app.asana.com/api/1.0/$methodPath";
-	$headers = array(
-		"Content-type: application/json",
-		"Authorization: Bearer $access_token"
-	);
-	$ch = curl_init();
-	curl_setopt($ch, CURLOPT_URL, $url);
-	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-	curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $httpMethod);
-	curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-
-    // SSL cert of Asana is selfmade
-    curl_setopt ($ch, CURLOPT_SSL_VERIFYHOST, 0);
-    curl_setopt ($ch, CURLOPT_SSL_VERIFYPEER, 0);
-
-	$jbody = $body;
-	if ($jbody)
-	{
-		if (!is_string($jbody))
-		{
-			$jbody = json_encode($body);
-		}
-		curl_setopt($ch, CURLOPT_POSTFIELDS, $jbody);
-	}
-
-	for ($i = 0; $i < 10; $i++) {
-		if ($ratelimit > time()) {
-			if ($wait) {
-				echo("Waiting for rate limit (". ($ratelimit - time()) . "s)");
-				time_sleep_until($ratelimit);
-			} else {
-				die ("Rate limit reached: retry in " . ($ratelimit - time()) . "s");
-			}
-		}
-
-		$data = curl_exec($ch);
-		$error = curl_error($ch);
-		$result = null;
-
-		// See http://stackoverflow.com/a/27909889/37416
-		if (version_compare(PHP_VERSION, '5.4.0', '>=') && !(defined('JSON_C_VERSION') && PHP_INT_SIZE > 4)) {
-		    /** In PHP >=5.4.0, json_decode() accepts an options parameter, that allows you
-		     * to specify that large ints (like Steam Transaction IDs) should be treated as
-		     * strings, rather than the PHP default behaviour of converting them to floats.
-		     */
-		    $result = json_decode($data, true, 512, JSON_BIGINT_AS_STRING);
-		} else {
-		    /** Not all servers will support that, however, so for older versions we must
-		     * manually detect large ints in the JSON string and quote them (thus converting
-		     *them to strings) before decoding, hence the preg_replace() call.
-		     */
-		    $max_int_length = strlen((string) PHP_INT_MAX) - 1;
-		    $json_without_bigints = preg_replace('/:\s*(-?\d{'.$max_int_length.',})/', ': "$1"', $data);
-		    $result = json_decode($json_without_bigints, true);
-		}
-		// $result = json_decode($data, true);
-
-		if(isset($result['retry_after'])) {
-			$ratelimit = time() + $result['retry_after'];
-			setRateLimit($ratelimit);
-
-			if ($wait)
-				continue;
-		}
-		break;
-	}
-
-	curl_close($ch);
-
-	cache($key, $result);
-
-	if ($DEBUG >= 2) {
-		pre(array('request' => $body, 'response' => $result), "$httpMethod " . $url);
-	}
-	return $result;
+	return $access_token;
 }
 
 function cache($key, $result) {
@@ -482,16 +496,16 @@ function copyAttachments($taskId, $newTaskId, $workspaceId) {
 	foreach ($result['data'] as $attachment){
 
 		if ($APPENGINE) {
-			queueAttachment($taskId, $newTask, $attachment["id"], $attachment["name"], $workspaceId);
+			queueAttachment($taskId, $newTaskId, $attachment["id"], $attachment["name"], $workspaceId);
 		}
 		else {
-			copyAttachment($taskId, $newTask, $attachment["id"], $attachment["name"], $workspaceId);
+			copyAttachment($taskId, $newTaskId, $attachment["id"], $attachment["name"], $workspaceId);
 		}
 	}
 }
 
 
-function queueAttachment($taskId, $newTask, $attachmentId, $attachmentName, $workspaceId) {
+function queueAttachment($taskId, $newTaskId, $attachmentId, $attachmentName, $workspaceId) {
 	global $channel;
 	global $authToken;
 	global $DEBUG;
@@ -512,7 +526,7 @@ function queueAttachment($taskId, $newTask, $attachmentId, $attachmentName, $wor
 	$task_name = $job->add('attachments');
 }
 
-function copyAttachment($taskId, $newTask, $attachmentId, $attachmentName, $workspaceId) {
+function copyAttachment($taskId, $newTaskId, $attachmentId, $attachmentName, $workspaceId, $wait=true) {
 
 	// Get attachment details
 	$result = asanaRequest("attachments/$attachmentId");
@@ -522,12 +536,71 @@ function copyAttachment($taskId, $newTask, $attachmentId, $attachmentName, $work
 		return;
 	}
 
-    // Get attachment content stream
     $downloadUrl = $result['data']['download_url'];
-    $content = fopen($download_url, 'r')
+    $fileName = $result['data']['name'];
+
+    // Get file headers
+    $headers = get_headers($downloadUrl, 1);
+    $contentLength = $headers['Content-Length'];
+
+    // Get attachment content stream
+    $content = fopen($downloadUrl, 'r');
+
+    // Set up cURL
+	$access_token = getAccessToken();
+	$ratelimit = getRateLimit();
+    $url = "https://app.asana.com/api/1.0/tasks/$newTaskId/attachments";
+	$headers = array(
+		"Content-type: multipart/form-data",
+		"Authorization: Bearer $access_token"
+	);
+	$fields = array(
+		"file" => $fileName
+	);
+	$ch = curl_init();
+	curl_setopt($ch, CURLOPT_URL, $url);
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+    curl_setopt($ch, CURLOPT_POST, true);
+	curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+	// curl_setopt($ch, CURLOPT_POSTFIELDS, $fields);
+
+	curl_setopt($ch, CURLOPT_UPLOAD, true);
+	curl_setopt($ch, CURLOPT_INFILE, $content);
+	curl_setopt($ch, CURLOPT_INFILESIZE, $contentLength);
+	curl_setopt($ch, CURLOPT_SAFE_UPLOAD, true);
+	curl_setopt($ch, CURLOPT_VERBOSE, true);
+
+    // SSL cert of Asana is selfmade
+    // curl_setopt ($ch, CURLOPT_SSL_VERIFYHOST, 0);
+    // curl_setopt ($ch, CURLOPT_SSL_VERIFYPEER, 0);
 
 	// Upload to destination task
+	if ($ratelimit > time()) {
+		if ($wait) {
+			echo("Waiting for rate limit (". ($ratelimit - time()) . "s)");
+			time_sleep_until($ratelimit);
+		} else {
+			die ("Rate limit reached: retry in " . ($ratelimit - time()) . "s");
+		}
+	}
 
+	$data = curl_exec($ch);
+	$error = curl_error($ch);
+	$result = parseAsanaResponse($data);
+
+	if(isset($result['retry_after'])) {
+		$ratelimit = time() + $result['retry_after'];
+		setRateLimit($ratelimit);
+
+		error("Rate limit exceeded");
+	}
+	if (isError($result))
+	{
+        pre($result, "Failed to upload attachment", 'danger');
+		return;
+	}
+
+	curl_close($ch);
 }
 
 function copyHistory($taskId, $newTaskId) {
