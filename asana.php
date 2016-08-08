@@ -1,11 +1,5 @@
 <?php
 
-require_once 'workspaces.php';
-require_once 'projects.php';
-require_once 'tasks.php';
-require_once 'taskdetails.php';
-require_once 'attachments.php';
-
 /**
  * This is based on the implementation here:
  * https://gist.github.com/AWeg/5814427
@@ -291,3 +285,8 @@ function isError($result) {
 	return isset($result['errors']) || !isset($result['data']);
 }
 
+require_once 'workspaces.php';
+require_once 'projects.php';
+require_once 'tasks.php';
+require_once 'taskdetails.php';
+require_once 'attachments.php';

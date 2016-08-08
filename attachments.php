@@ -55,43 +55,55 @@ function copyAttachment($taskId, $newTaskId, $attachmentId, $attachmentName, $wo
 		return;
 	}
 
+    // Set up variables for upload
+    global $attachmentLength;
+    global $attachmentHeader;
+    global $attachmentFooter;
+
     $downloadUrl = $result['data']['download_url'];
     $fileName = $result['data']['name'];
 
     // Get file headers
     $headers = get_headers($downloadUrl, 1);
-    $contentLength = $headers['Content-Length'];
+    $attachmentLength = $headers['content-length'];
+    $attachmentType = $headers['content-type'];
+    printf("Attachment size: %d bytes\n", $attachmentLength);
 
     // Get attachment content stream
     $content = fopen($downloadUrl, 'r');
+
+    // Prepare upload
+    $boundary = 'AaB03x';
+    $attachmentHeader = 
+		"--$boundary\r\n".
+		"Content-Disposition: form-data; name=\"file\"; filename=\"$fileName\"\r\n".
+		"Content-Type: $attachmentType\r\n".
+		"Content-Transfer-Encoding: binary\r\n\r\n";
+	$attachmentFooter =
+		"\r\n--$boundary--\r\n";
+	$contentLength = strlen($attachmentHeader) + $attachmentLength + strlen($attachmentFooter);
 
     // Set up cURL
 	$access_token = getAccessToken();
 	$ratelimit = getRateLimit();
     $url = "https://app.asana.com/api/1.0/tasks/$newTaskId/attachments";
 	$headers = array(
-		"Content-type: multipart/form-data",
+		"Content-Type: multipart/form-data; boundary=$boundary",
+		"Content-Length: $contentLength",
 		"Authorization: Bearer $access_token"
 	);
-	$fields = array(
-		"file" => $fileName
+	
+	$ch = curl_init($url);
+	$options = array(
+		CURLOPT_RETURNTRANSFER => true,
+	    CURLOPT_POST => true,
+		CURLOPT_HTTPHEADER => $headers,
+		CURLOPT_INFILE => $content,
+		CURLOPT_INFILESIZE => $content,
+		CURLOPT_VERBOSE => true,
+		CURLOPT_READFUNCTION => 'uploadAttachment'
 	);
-	$ch = curl_init();
-	curl_setopt($ch, CURLOPT_URL, $url);
-	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-    curl_setopt($ch, CURLOPT_POST, true);
-	curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-	// curl_setopt($ch, CURLOPT_POSTFIELDS, $fields);
-
-	curl_setopt($ch, CURLOPT_UPLOAD, true);
-	curl_setopt($ch, CURLOPT_INFILE, $content);
-	curl_setopt($ch, CURLOPT_INFILESIZE, $contentLength);
-	curl_setopt($ch, CURLOPT_SAFE_UPLOAD, true);
-	curl_setopt($ch, CURLOPT_VERBOSE, true);
-
-    // SSL cert of Asana is selfmade
-    // curl_setopt ($ch, CURLOPT_SSL_VERIFYHOST, 0);
-    // curl_setopt ($ch, CURLOPT_SSL_VERIFYPEER, 0);
+	curl_setopt_array($ch, $options);
 
 	// Upload to destination task
 	if ($ratelimit > time()) {
@@ -104,7 +116,7 @@ function copyAttachment($taskId, $newTaskId, $attachmentId, $attachmentName, $wo
 	}
 
 	$data = curl_exec($ch);
-	$error = curl_error($ch);
+	$curlError = curl_error($ch);
 	$result = parseAsanaResponse($data);
 
 	if(isset($result['retry_after'])) {
@@ -120,4 +132,64 @@ function copyAttachment($taskId, $newTaskId, $attachmentId, $attachmentName, $wo
 	}
 
 	curl_close($ch);
+}
+
+// Thanks to http://zingaburga.com/2011/02/streaming-post-data-through-php-curl-using-curlopt_readfunction/
+function uploadAttachment($ch, $fp, $len) {
+	static $header=true;
+	static $footer=false;
+	static $pos=0; // keep track of position
+
+    global $attachmentLength;
+    global $attachmentHeader;
+    global $attachmentFooter;
+
+    // Send header
+    if ($header) {
+		// set data
+		$data = substr($attachmentHeader, $pos, $len);
+
+		// increment $pos
+		$pos += strlen($data);
+    	printf("Uploaded %d bytes of header\n", $pos);
+
+		// Check for end of header
+    	if ($pos >= strlen($attachmentHeader)) {
+    		$header = false;
+    		$pos = 0;
+    	}
+
+		// return the data to send in the request
+		return $data;
+    } 
+
+    // Send body
+    if (!$footer) {
+    	// set data
+		$data = fread($fp, $len);
+
+		// increment $pos
+		$pos += strlen($data);
+    	printf("Uploaded %d / %d bytes of body\n", $pos, $attachmentLength);
+
+		// Check for end of header
+    	if ($pos >= $attachmentLength) {
+    		$footer = true;
+    		$pos = 0;
+    	}
+
+		// return the data to send in the request
+		return $data;
+    }
+
+    // Send footer
+    // set data
+	$data = substr($attachmentFooter, $pos, $len);
+
+	// increment $pos
+	$pos += strlen($data);
+	printf("Uploaded %d bytes of footer\n", $pos);
+
+	// return the data to send in the request
+	return $data;
 }
