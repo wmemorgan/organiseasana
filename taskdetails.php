@@ -10,7 +10,17 @@ function copyHistory($taskId, $newTaskId) {
 	}
 
 	$comments = array();
-	foreach ($result['data'] as $story){
+	foreach ($result['data'] as $story) {
+		// Skip stories about attachments or other system events that may not be relevant in the new workspace
+		if ($story['type'] === 'system' && substr($story['text'], 0, 9) === 'attached ') {
+			continue;
+		}
+		if ($story['type'] === 'system' && substr($story['text'], 0, 9) === 'added to ') {
+			continue;
+		}
+		if ($story['type'] === 'system' && substr($story['text'], 0, 12) === 'assigned to ') {
+			continue;
+		}
 		$date = date('l M d, Y h:i A', strtotime($story['created_at']));
 		$comment = " ­\n" . $story['created_by']['name'] . ' on ' . $date . ":\n" . $story['text'];
 		$comments[] = $comment;

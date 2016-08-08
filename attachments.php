@@ -73,7 +73,7 @@ function copyAttachment($taskId, $newTaskId, $attachmentId, $attachmentName, $wo
     $content = fopen($downloadUrl, 'r');
 
     // Prepare upload
-    $boundary = 'AaB03x';
+    $boundary = md5(rand());
     $attachmentHeader = 
 		"--$boundary\r\n".
 		"Content-Disposition: form-data; name=\"file\"; filename=\"$fileName\"\r\n".
@@ -100,7 +100,6 @@ function copyAttachment($taskId, $newTaskId, $attachmentId, $attachmentName, $wo
 		CURLOPT_HTTPHEADER => $headers,
 		CURLOPT_INFILE => $content,
 		CURLOPT_INFILESIZE => $content,
-		CURLOPT_VERBOSE => true,
 		CURLOPT_READFUNCTION => 'uploadAttachment'
 	);
 	curl_setopt_array($ch, $options);
@@ -151,7 +150,6 @@ function uploadAttachment($ch, $fp, $len) {
 
 		// increment $pos
 		$pos += strlen($data);
-    	printf("Uploaded %d bytes of header\n", $pos);
 
 		// Check for end of header
     	if ($pos >= strlen($attachmentHeader)) {
@@ -170,7 +168,6 @@ function uploadAttachment($ch, $fp, $len) {
 
 		// increment $pos
 		$pos += strlen($data);
-    	printf("Uploaded %d / %d bytes of body\n", $pos, $attachmentLength);
 
 		// Check for end of header
     	if ($pos >= $attachmentLength) {
@@ -188,7 +185,6 @@ function uploadAttachment($ch, $fp, $len) {
 
 	// increment $pos
 	$pos += strlen($data);
-	printf("Uploaded %d bytes of footer\n", $pos);
 
 	// return the data to send in the request
 	return $data;
