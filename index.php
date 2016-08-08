@@ -145,6 +145,9 @@ if($DEBUG >= 1) {
 			<p>
 				<b>Update 24th April 2016:</b> Copy jobs for large projects which take over 1 hour should now work without complaining about the OAuth tokens expiring.
 			</p>
+			<p>
+				<b>Update 8th August 2016:</b> Attachments are now copied to the new workspace.
+			</p>
 			<form id="mainForm" role="form" method="POST">
 				<div class="row">
 					<div class="col-sm-8">
