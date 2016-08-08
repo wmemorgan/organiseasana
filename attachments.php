@@ -2,7 +2,7 @@
 
 
 
-function copyAttachments($taskId, $newTaskId, $workspaceId) {
+function copyAttachments($taskId, $newTaskId) {
 	$result = asanaRequest("tasks/$taskId/attachments");
 	if (isError($result))
 	{
@@ -15,16 +15,16 @@ function copyAttachments($taskId, $newTaskId, $workspaceId) {
 	foreach ($result['data'] as $attachment){
 
 		if ($APPENGINE) {
-			queueAttachment($taskId, $newTaskId, $attachment["id"], $attachment["name"], $workspaceId);
+			queueAttachment($taskId, $newTaskId, $attachment["id"], $attachment["name"]);
 		}
 		else {
-			copyAttachment($taskId, $newTaskId, $attachment["id"], $attachment["name"], $workspaceId);
+			copyAttachment($taskId, $newTaskId, $attachment["id"], $attachment["name"]);
 		}
 	}
 }
 
 
-function queueAttachment($taskId, $newTaskId, $attachmentId, $attachmentName, $workspaceId) {
+function queueAttachment($taskId, $newTaskId, $attachmentId, $attachmentName) {
 	global $channel;
 	global $authToken;
 	global $DEBUG;
@@ -45,7 +45,7 @@ function queueAttachment($taskId, $newTaskId, $attachmentId, $attachmentName, $w
 	$task_name = $job->add('attachments');
 }
 
-function copyAttachment($taskId, $newTaskId, $attachmentId, $attachmentName, $workspaceId, $wait=true) {
+function copyAttachment($taskId, $newTaskId, $attachmentId, $attachmentName, $wait=true) {
 
 	// Get attachment details
 	$result = asanaRequest("attachments/$attachmentId");
@@ -62,11 +62,23 @@ function copyAttachment($taskId, $newTaskId, $attachmentId, $attachmentName, $wo
 
     $downloadUrl = $result['data']['download_url'];
     $fileName = $result['data']['name'];
+    $attachmentType = "text/plain";
 
     // Get file headers
     $headers = get_headers($downloadUrl, 1);
-    $attachmentLength = $headers['content-length'];
-    $attachmentType = $headers['content-type'];
+    if (isset($headers['Content-Length'])) {
+	    $attachmentLength = $headers['Content-Length'];
+    } else {
+    	if (!isset($headers['content-length'])) {
+	    	error($headers, "Unable to determine content length of attachment", 'danger');
+	    }
+	    $attachmentLength = $headers['content-length'];
+	}
+	if (isset($headers['Content-Type'])) {
+	    $attachmentType = $headers['Content-Type'];
+    } else if (isset($headers['content-type'])) {
+    	$attachmentType = $headers['content-type'];
+	}
     printf("Attachment size: %d bytes\n", $attachmentLength);
 
     // Get attachment content stream

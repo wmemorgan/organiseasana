@@ -14,9 +14,8 @@
 	$newTaskId = $_POST['newTaskId'];
 	$attachmentId = $_POST['attachmentId'];
 	$attachmentName = $_POST['attachmentName'];
-	$workspaceId = $_POST['workspaceId'];
 
 	progress("Copying attachment $attachmentName ($attachmentId)");
-	copyAttachment($taskId, $newTaskId, $attachmentId, $attachmentName, $workspaceId);
+	copyAttachment($taskId, $newTaskId, $attachmentId, $attachmentName);
 
 ?>
