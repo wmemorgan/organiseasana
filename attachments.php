@@ -63,6 +63,9 @@ function copyAttachment($taskId, $newTaskId, $attachmentId, $attachmentName, $wa
     global $DEBUG;
 
     $downloadUrl = $result['data']['download_url'];
+
+    // TODO prevent downloading Google Drive attachments - it doesn't work.
+
     $fileName = $result['data']['name'];
     $attachmentType = "text/plain";
     $attachmentLength = -1;
