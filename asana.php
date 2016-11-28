@@ -34,7 +34,8 @@ function asanaRequest($methodPath, $httpMethod = 'GET', $body = null, $cached = 
 	$url = "https://app.asana.com/api/1.0/$methodPath";
 	$headers = array(
 		"Content-type: application/json",
-		"Authorization: Bearer $access_token"
+		"Authorization: Bearer $access_token",
+		"Asana-Fast-Api: true"
 	);
 	$ch = curl_init();
 	curl_setopt($ch, CURLOPT_URL, $url);
