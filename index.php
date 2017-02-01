@@ -14,6 +14,7 @@
 	$projects = null;
 	$teamId = null;
 	$refresh = false;
+	$projectCursor = false;
 
 	// Has the job been cancelled?
 	if (isset($_POST["cancel"]) && $channel) {
@@ -26,6 +27,10 @@
 		$storeKey = $_POST["storeKey"];
 	if (isset($_POST["refresh"]))
 		$channel = $_POST['refresh'];
+	if (isset($_POST["projectCursor"]))
+		$projectCursor = $_POST["projectCursor"];
+	if (isset($_POST["setProjectCursor"]))
+		$projectCursor = $_POST["setProjectCursor"];
 
 	if (isset($_POST["new_workspace"])) {
 		$workspaceId = $_POST["new_workspace"];
@@ -278,7 +283,7 @@ if($DEBUG >= 1) {
 								$notes = $project['notes'];
 
 								// Check for an existing project in the target workspace
-								$targetProjects = getProjects($targetWorkspaceId);
+								$targetProjects = getProjects($targetWorkspaceId, false, false);
 								if ($DEBUG) pre($targetProjects);
 
 								$count = 2;
@@ -335,13 +340,14 @@ if($DEBUG >= 1) {
 
 						if ($workspaceId) {
 							echo '<input type="hidden" name="workspace" value="' . $workspaceId . '"></input>';
+							echo '<input type="hidden" name="projectCursor" value="' . $projectCursor . '"></input>';
 
 							// Select projects
 							echo '<div class="row">';
 							echo '<div class="col-sm-4">';
 							echo '<h2>Copy Projects -></h2>';
 
-							$workspaceProjects = getProjects($workspaceId);
+							$workspaceProjects = getProjects($workspaceId, $projectCursor);
 							$names = function($value) { return $value['name']; };
 							array_multisort(array_map($names, $workspaceProjects), SORT_DESC, $workspaceProjects);
 
@@ -358,6 +364,12 @@ if($DEBUG >= 1) {
 
 								echo '<label class="btn btn-default' . $active . '"><input type="checkbox" name="projects[]" value="'
 										. $project['id'] . '"' . $checked . '> ' . $project['name'] . '</label>';
+							}
+							echo '</div>';
+
+							echo '<div style="padding: 10px;"><button class="btn btn-sm btn-primary" type="submit" name="setProjectCursor" value="0">Reset</button> ';
+							if ($projectCursor) {
+								echo '<button class="btn btn-sm btn-primary" type="submit" name="setProjectCursor" value="' . $projectCursor . '">More</button>';
 							}
 							echo '</div>';
 
