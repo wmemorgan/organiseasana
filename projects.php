@@ -1,11 +1,25 @@
 <?php
 
-function getProjects($workspaceId) {
-	$result = asanaRequest("workspaces/$workspaceId/projects");
+function getProjects($workspaceId, &$cursor, $limit = 20) {
+	$path = "workspaces/$workspaceId/projects?";
+	if ($limit) {
+		$path .= "&limit=$limit";
+	}
+	if ($cursor) {
+		$path .= "&offset=$cursor";
+	}
+
+	$result = asanaRequest($path);
 	if (isError($result))
 	{
         pre($result, "Error Loading Projects!", 'danger');
 		return;
+	}
+
+	if ($result['next_page']) {
+		$cursor = $result['next_page']['offset'];
+	} else {
+		$cursor = false;
 	}
 
 	return $result['data'];
