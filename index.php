@@ -166,6 +166,9 @@ if($DEBUG >= 1) {
 			<p>
 				<b>Update 8th August 2016:</b> Attachments are now copied to the new workspace.
 			</p>
+			<p>
+				<b>Update 21st Feb 2017:</b> Copying large projects now works more reliably.
+			</p>
 			<form id="mainForm" role="form" method="POST">
 				<div class="row">
 					<div class="col-sm-8">
