@@ -22,8 +22,10 @@
 
 	$projectOffset = 0;
 	$currentProject = null;
+	$nextPageOffset = null;
 	if (isset($_POST['projectOffset'])) {
 		$projectOffset = $_POST['projectOffset'];
+		$nextPageOffset = $_POST['nextPageOffset'];
 		$currentProject = $_POST['currentProject'];
 	}
 
@@ -95,29 +97,34 @@
 	    $fromProjectId = $project['id'];
 	    $toProjectId = $targetProject['id'];
 	    incrementRequests(1);
-	    $result = asanaRequest("projects/$fromProjectId/tasks?opt_fields=assignee,assignee_status,completed,due_on,due_at,hearted,name,notes");
+	    $url = "projects/$fromProjectId/tasks?opt_fields=assignee,assignee_status,completed,due_on,due_at,hearted,name,notes?limit=100";
+		if ($nextPageOffset != null) {
+			$url .= "&offset=$nextPageOffset";
+		}
+		$result = asanaRequest($url);
 		$tasks = $result['data'];
+		$nextPage = $result['next_page'];
 
 		global $APPENGINE;
 
 	    // copy Tasks
 	    // TODO check timing and re-queue after 5mins
-	    $start = count($tasks) - 1;
+	    $start = 0;
 	    if ($taskOffset >= 0) {
 	    	$start = $taskOffset;
-	    	$taskOffset = -1;
 	    }
-	    for ($j = $start; $j >= 0; $j--)
+	    for ($j = $start; $j < count($tasks); $j++)
 		{
 
 			// Potential calls to the API
 			// createTask: 2
+			// addToProject: 1
 			// copyHistory: 2
 			// copyTags: 1 + 3N tags
 			// copySubtasks: 1 + 2N subtasks + descendants
 
-			// Allow for minimum (6), rest will be deferred if not enough allowance
-			$pending = incrementRequests(6);
+			// Allow for minimum (7), rest will be deferred if not enough allowance
+			$pending = incrementRequests(7);
 			$rateLimit = getRateLimit();
 
 			if (isCancelled($channel)) {
@@ -164,7 +171,8 @@
 				}
 			}
 
-			$newTask = createTask($targetWorkspaceId, $toProjectId, $newTask);
+			$newTask = createTask($targetWorkspaceId, $newTask);
+			addTaskToProject($newTask, $toProjectId);
 			
 			if ($APPENGINE) {
 				queueTask($targetWorkspaceId, $taskId, $newTask);
@@ -172,6 +180,30 @@
 			else {
 				copyTask($targetWorkspaceId, $taskId, $newTask);
 			}
+		}
+
+		if (!empty($nextPage)) {
+			// Re-queue task creation at the start of the next page
+			$params = [
+				'channel' => $channel,
+				'authToken' => $authToken,
+				'targetWorkspace' => $targetWorkspaceId,
+				'workspace' => $workspaceId,
+				'projects' => $projects,
+				'team' => $teamId,
+				'projectOffset' => $i,
+				'taskOffset' => 0,
+				'nextPageOffset' => $nextPage['offset'],
+				'currentProject' => $targetProject
+			];
+			$delay = 60;
+			if ($rateLimit > time()) {
+				$delay = $rateLimit - time() + 10;
+			}
+			$options = ['delay_seconds' => $delay];
+			$task = new \google\appengine\api\taskqueue\PushTask('/process/project', $params, $options);
+			$task_name = $task->add();
+			return;
 		}
 
 		$params = [

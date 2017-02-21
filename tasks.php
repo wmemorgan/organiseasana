@@ -116,10 +116,22 @@ function cleanTask($task) {
 	return $task;	
 }
 
-function createTask($workspaceId, $projectId, $task)
-{
+function addTaskToProject($task, $projectId) {
+
 	// Set projects
 	$task['projects'] = array($projectId);
+	$taskId = $task['id'];
+	$data = array('data' => array(
+		'project' => $projectId,
+		'insert_before' => null,
+	));
+	$result = asanaRequest("tasks/$taskId/addProject", 'POST', $data);
+}
+
+function createTask($workspaceId, $task)
+{
+	// Unset projects
+	unset($task['projects']);
 
 	// Validate task data
 	$task = cleanTask($task);
