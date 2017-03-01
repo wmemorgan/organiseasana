@@ -169,6 +169,9 @@ if($DEBUG >= 1) {
 			<p>
 				<b>Update 21st Feb 2017:</b> Copying large projects now works more reliably.
 			</p>
+			<p>
+				<b>Update 1st March 2017:</b> Bug fix for task description not being copied.
+			</p>
 			<form id="mainForm" role="form" method="POST">
 				<div class="row">
 					<div class="col-sm-8">

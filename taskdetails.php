@@ -27,8 +27,9 @@ function copyHistory($taskId, $newTaskId) {
 	}
 	$comment = implode("\n----------------------", $comments);
 	$data = array('data' => array('text' => $comment));
-	$result = asanaRequest("tasks/$newTaskId/stories", 'POST', $data);
-
+	if ($comment) {
+		$result = asanaRequest("tasks/$newTaskId/stories", 'POST', $data);
+	}
 }
 
 function copyTags ($taskId, $newTaskId, $newworkspaceId) {

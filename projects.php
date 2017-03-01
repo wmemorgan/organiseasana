@@ -36,16 +36,18 @@ function getProject($projectId) {
 	return $result['data'];
 }
 
-function createProject($workspaceId, $name, $teamId, $notes)
+function createProject($workspaceId, $name, $teamId, $project)
 {
 	p("Creating project: " . $name);
-	$data = array('data' => array('name' => $name));
-	if ($workspaceId)
-		$data['data']['workspace'] = $workspaceId;
-	if ($notes)
-		$data['data']['notes'] = $notes;
+	$data = array('data' => array(
+		'name' => $name,
+		'workspace' => $workspaceId
+		// 'layout' => $project['layout']
+	));
 	if ($teamId)
 		$data['data']['team'] = $teamId;
+	if ($project['notes'])
+		$data['data']['notes'] = $project['notes'];
 
 	$result = asanaRequest("projects", 'POST', $data);
 

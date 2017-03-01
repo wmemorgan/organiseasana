@@ -55,7 +55,6 @@
 
 	for ($i = $projectOffset; $i < count($projects); $i++) {
 		$project = getProject($projects[$i], false);
-		$notes = $project['notes'];
 
 		// Create a new project if we're not in the middle of an existing copy
 		if ($currentProject) {
@@ -86,7 +85,7 @@
 
 			// Create target project
 			progress('Copying ' . $project['name'] . ' to ' . $targetWorkspace['name'] . $teamName . '/' . $targetProjectName);
-			$targetProject = createProject($targetWorkspaceId, $targetProjectName, $teamId, $notes);
+			$targetProject = createProject($targetWorkspaceId, $targetProjectName, $teamId, $project);
 			notifyCreated($targetProject);
 		}
 
@@ -97,7 +96,7 @@
 	    $fromProjectId = $project['id'];
 	    $toProjectId = $targetProject['id'];
 	    incrementRequests(1);
-	    $url = "projects/$fromProjectId/tasks?opt_fields=assignee,assignee_status,completed,due_on,due_at,hearted,name,notes?limit=100";
+	    $url = "projects/$fromProjectId/tasks?opt_fields=assignee,assignee_status,completed,due_on,due_at,hearted,name,notes&limit=100";
 		if ($nextPageOffset != null) {
 			$url .= "&offset=$nextPageOffset";
 		}
