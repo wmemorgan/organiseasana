@@ -14,8 +14,9 @@
 	$newSubId = $_POST['newSubId'];
 	$workspaceId = $_POST['workspaceId'];
 	$depth = $_POST['depth'];
+	$copyTags = $_POST['copyTags'];
 
 	progress('Copying subtask ' . $newSubId);
-	copySubtask($subtaskId, $newSubId, $workspaceId, $depth);
+	copySubtask($subtaskId, $newSubId, $workspaceId, $depth, $copyTags);
 
 ?>

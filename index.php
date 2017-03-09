@@ -157,21 +157,18 @@ if($DEBUG >= 1) {
 			</div>
 			<?php }?>
 
-			<p>
-				<b>Update 24th March 2016:</b> Asana have discontinued the supply of API keys, so I've implemented the proper OAuth login flow. Sorry it took so long!
-			</p>
-			<p>
-				<b>Update 24th April 2016:</b> Copy jobs for large projects which take over 1 hour should now work without complaining about the OAuth tokens expiring.
-			</p>
-			<p>
-				<b>Update 8th August 2016:</b> Attachments are now copied to the new workspace.
-			</p>
-			<p>
-				<b>Update 21st Feb 2017:</b> Copying large projects now works more reliably.
-			</p>
-			<p>
-				<b>Update 1st March 2017:</b> Bug fix for task description not being copied.
-			</p>
+			<h3>Updates</h3>
+			<ul>
+				<li>
+					<b>21st Feb 2017:</b> Copying large projects now works more reliably.
+				</li>
+				<li>
+					<b>1st March 2017:</b> Bug fix for task description not being copied.
+				</li>
+				<li>
+					<b>9th March 2017:</b> Bug fix for duplicate tasks being copied, and errors when copying projects with tags to a personal workspace.
+				</li>
+			</ul>
 			<form id="mainForm" role="form" method="POST">
 				<div class="row">
 					<div class="col-sm-8">

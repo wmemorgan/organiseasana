@@ -35,9 +35,11 @@
 
 	// Get some info
 	$team = null;
+	$copyTags = false;
 	$targetWorkspace = getWorkspace($targetWorkspaceId);
 	if ($targetWorkspaceId && $projects) {
 		if (isOrganisation($targetWorkspace)) {
+			$copyTags = true;
 			if ($teamId) {
 				$team = getTeam($targetWorkspaceId, $teamId);
 			}
@@ -50,7 +52,7 @@
 	}
 
 	if ($taskOffset < 0) {
-		progress('Copying Projects to '. $targetWorkspace['name'] . $teamName);
+		progress('Copying projects to '. $targetWorkspace['name'] . $teamName);
 	}
 
 	for ($i = $projectOffset; $i < count($projects); $i++) {
@@ -84,7 +86,7 @@
 			while ($found == true && $count < 100);
 
 			// Create target project
-			progress('Copying ' . $project['name'] . ' to ' . $targetWorkspace['name'] . $teamName . '/' . $targetProjectName);
+			p('Copying ' . $project['name'] . ' to ' . $targetWorkspace['name'] . $teamName . '/' . $targetProjectName);
 			$targetProject = createProject($targetWorkspaceId, $targetProjectName, $teamId, $project);
 			notifyCreated($targetProject);
 		}
@@ -123,7 +125,12 @@
 			// copySubtasks: 1 + 2N subtasks + descendants
 
 			// Allow for minimum (7), rest will be deferred if not enough allowance
-			$pending = incrementRequests(7);
+			$pending = 0;
+			if ($copyTags) {
+				$pending = incrementRequests(7);
+			} else {
+				$pending = incrementRequests(6);
+			}
 			$rateLimit = getRateLimit();
 
 			if (isCancelled($channel)) {
@@ -144,7 +151,8 @@
 					'projectOffset' => $i,
 					'taskOffset' => $j,
 					'nextPageOffset' => $nextPageOffset,
-					'currentProject' => $targetProject
+					'currentProject' => $targetProject,
+					'copyTags' => $copyTags
 				];
 				$delay = 60;
 				if ($rateLimit > time()) {
@@ -175,10 +183,10 @@
 			addTaskToProject($newTask, $toProjectId);
 			
 			if ($APPENGINE) {
-				queueTask($targetWorkspaceId, $taskId, $newTask);
+				queueTask($targetWorkspaceId, $taskId, $newTask, $copyTags);
 			}
 			else {
-				copyTask($targetWorkspaceId, $taskId, $newTask);
+				copyTask($targetWorkspaceId, $taskId, $newTask, $copyTags);
 			}
 		}
 
@@ -194,7 +202,8 @@
 				'projectOffset' => $i,
 				'taskOffset' => 0,
 				'nextPageOffset' => $nextPage['offset'],
-				'currentProject' => $targetProject
+				'currentProject' => $targetProject,
+				'copyTags' => $copyTags
 			];
 			$delay = 60;
 			if ($rateLimit > time()) {

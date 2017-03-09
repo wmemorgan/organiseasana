@@ -68,7 +68,7 @@ function copyTasks($fromProjectId, $toProjectId, $offset = 0)
 	}
 }
 
-function queueTask($workspaceId, $taskId, $newTask) {
+function queueTask($workspaceId, $taskId, $newTask, $copyTags = true, $copyAttachments = true) {
 	global $channel;
 	global $authToken;
 	global $DEBUG;
@@ -83,21 +83,26 @@ function queueTask($workspaceId, $taskId, $newTask) {
 		'workspaceId' => $workspaceId,
 		'taskId' => $taskId,
 		'newTask' => $newTask,
-		'debug' => $DEBUG
+		'debug' => $DEBUG,
+		'copyTags' => $copyTags
 	];
 	$job = new \google\appengine\api\taskqueue\PushTask('/process/task', $params);
 	$task_name = $job->add();
 }
 
-function copyTask($workspaceId, $taskId, $newTask) {
+function copyTask($workspaceId, $taskId, $newTask, $copyTags = true, $copyAttachments = true) {
 
     $newTaskId=$newTask['id'];
 	copyHistory($taskId, $newTaskId);
-    copyTags($taskId, $newTaskId, $workspaceId);
-    copyAttachments($taskId, $newTaskId, $workspaceId);
+	if ($copyTags) {
+    	copyTags($taskId, $newTaskId, $workspaceId);
+	}
+	if ($copyAttachments) {
+		copyAttachments($taskId, $newTaskId, $workspaceId);
+	}
 
     $depth = 0;
-    copySubtasks($taskId, $newTaskId, $depth, $workspaceId);
+    copySubtasks($taskId, $newTaskId, $depth, $workspaceId, $copyTags, $copyAttachments);
 }
 
 function cleanTask($task) {
@@ -169,7 +174,7 @@ function createTask($workspaceId, $task)
 	return $result;
 }
 
-function copySubtasks($taskId, $newTaskId, $depth, $workspaceId) {
+function copySubtasks($taskId, $newTaskId, $depth, $workspaceId, $copyTags = true, $copyAttachments = true) {
     $depth++;
     if ($depth > 10) {
         return FALSE;
@@ -223,17 +228,17 @@ function copySubtasks($taskId, $newTaskId, $depth, $workspaceId) {
             
             global $APPENGINE;
             if ($APPENGINE) {
-            	queueSubtask($subtaskId, $newSubId, $workspaceId, $depth);
+            	queueSubtask($subtaskId, $newSubId, $workspaceId, $depth, $copyTags, $copyAttachments);
             }
             else {
-            	copySubtask($subtaskId, $newSubId, $workspaceId, $depth);
+            	copySubtask($subtaskId, $newSubId, $workspaceId, $depth, $copyTags, $copyAttachments);
             }
 
         }
     }
 }
 
-function queueSubtask($subtaskId, $newSubId, $workspaceId, $depth) {
+function queueSubtask($subtaskId, $newSubId, $workspaceId, $depth, $copyTags = true, $copyAttachments = true) {
 	global $channel;
 	global $authToken;
 	global $DEBUG;
@@ -249,17 +254,22 @@ function queueSubtask($subtaskId, $newSubId, $workspaceId, $depth) {
 		'newSubId' => $newSubId,
 		'workspaceId' => $workspaceId,
 		'depth' => $depth,
+		'copyTags' => $copyTags,
 		'debug' => $DEBUG
 	];
 	$job = new \google\appengine\api\taskqueue\PushTask('/process/subtask', $params);
 	$task_name = $job->add();
 }
 
-function copySubtask($subtaskId, $newSubId, $workspaceId, $depth) {
+function copySubtask($subtaskId, $newSubId, $workspaceId, $depth, $copyTags = true, $copyAttachments = true) {
 
     copyHistory($subtaskId, $newSubId);
-    copyTags($subtaskId, $newSubId, $workspaceId);
-    copyAttachments($subtaskId, $newSubId, $workspaceId);
+	if ($copyTags) {
+		copyTags($subtaskId, $newSubId, $workspaceId);
+	}
+	if ($copyAttachments) {
+		copyAttachments($subtaskId, $newSubId, $workspaceId);
+	}
 
-    copySubtasks($subtaskId, $newSubId, $depth, $workspaceId);
+    copySubtasks($subtaskId, $newSubId, $depth, $workspaceId, $copyTags, $copyAttachments);
 }
