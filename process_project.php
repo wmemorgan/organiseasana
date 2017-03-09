@@ -96,7 +96,7 @@
 	    $fromProjectId = $project['id'];
 	    $toProjectId = $targetProject['id'];
 	    incrementRequests(1);
-	    $url = "projects/$fromProjectId/tasks?opt_fields=assignee,assignee_status,completed,due_on,due_at,hearted,name,notes&limit=100";
+	    $url = "projects/$fromProjectId/tasks?opt_fields=assignee,assignee_status,completed,due_on,due_at,hearted,name,notes&limit=10";
 		if ($nextPageOffset != null) {
 			$url .= "&offset=$nextPageOffset";
 		}
@@ -143,6 +143,7 @@
 					'team' => $teamId,
 					'projectOffset' => $i,
 					'taskOffset' => $j,
+					'nextPageOffset' => $nextPageOffset,
 					'currentProject' => $targetProject
 				];
 				$delay = 60;
