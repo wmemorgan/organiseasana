@@ -15,6 +15,7 @@
 	$teamId = null;
 	$refresh = false;
 	$projectCursor = false;
+	$teamCursor = false;
 
 	// Has the job been cancelled?
 	if (isset($_POST["cancel"]) && $channel) {
@@ -31,6 +32,10 @@
 		$projectCursor = $_POST["projectCursor"];
 	if (isset($_POST["setProjectCursor"]))
 		$projectCursor = $_POST["setProjectCursor"];
+	if (isset($_POST["teamCursor"]))
+		$teamCursor = $_POST["teamCursor"];
+	if (isset($_POST["setTeamCursor"]))
+		$teamCursor = $_POST["setTeamCursor"];
 
 	if (isset($_POST["new_workspace"])) {
 		$workspaceId = $_POST["new_workspace"];
@@ -39,8 +44,9 @@
 		if (isset($_POST["workspace"]))
 			$workspaceId = $_POST["workspace"];
 
-		if (isset($_POST["projects"]))
-			$projects = $_POST["projects"];
+		if (isset($_POST["projects"])) {
+			$projects = array_unique($_POST["projects"]);
+		}
 
 		if (isset($_POST["new_targetWorkspace"])) {
 			$targetWorkspaceId = $_POST["new_targetWorkspace"];
@@ -350,19 +356,22 @@ if($DEBUG >= 1) {
 							echo '<div class="col-sm-4">';
 							echo '<h2>Copy Projects -></h2>';
 
-							$workspaceProjects = getProjects($workspaceId, $projectCursor);
+							$nextProjectCursor = $projectCursor;
+							$workspaceProjects = getProjects($workspaceId, $nextProjectCursor);
 							$names = function($value) { return $value['name']; };
-							array_multisort(array_map($names, $workspaceProjects), SORT_DESC, $workspaceProjects);
 
 							echo '<div class="btn-group-vertical" data-toggle="buttons">';
+							$remainingProjects = $projects;
 							for ($i = count($workspaceProjects) - 1; $i >= 0; $i--)
 							{
 								$project = $workspaceProjects[$i];
 								$checked = '';
 								$active = '';
-								if ($projects && in_array($project['id'], $projects)) {
+								$id = $project['id'];
+								if ($projects && in_array($id, $projects)) {
 									$checked = ' checked';
 									$active = ' active';
+									$remainingProjects = array_diff($remainingProjects, [$id]);
 								}
 
 								echo '<label class="btn btn-default' . $active . '"><input type="checkbox" name="projects[]" value="'
@@ -370,9 +379,20 @@ if($DEBUG >= 1) {
 							}
 							echo '</div>';
 
-							echo '<div style="padding: 10px;"><button class="btn btn-sm btn-primary" type="submit" name="setProjectCursor" value="0">Reset</button> ';
+							$other = count($remainingProjects);
+							if ($other) {
+								echo '<p>' . $other . " other projects selected</p>";
+								foreach($remainingProjects as $project) {
+									echo '<input type="hidden" name="projects[]" value="' . $project . '">';
+								}
+							}
+
+							echo '<div style="padding: 10px;">';
 							if ($projectCursor) {
-								echo '<button class="btn btn-sm btn-primary" type="submit" name="setProjectCursor" value="' . $projectCursor . '">More</button>';
+								echo '<button class="btn btn-sm btn-primary" type="submit" name="setProjectCursor" value="0">Reset</button> ';
+							}
+							if ($nextProjectCursor) {
+								echo '<button class="btn btn-sm btn-primary" type="submit" name="setProjectCursor" value="' . $nextProjectCursor . '">More</button>';
 							}
 							echo '</div>';
 
@@ -411,7 +431,9 @@ if($DEBUG >= 1) {
 
 								// Handle Personal Projects
 								if ($showTeams) {
-									$teams = getTeams($targetWorkspaceId);
+									echo '<input type="hidden" name="teamCursor" value="' . $teamCursor . '"></input>';
+									$nextTeamCursor = $teamCursor;
+									$teams = getTeams($targetWorkspaceId, $nextTeamCursor);
 									
 									echo '<h2>for team</h2>';
 
@@ -421,6 +443,15 @@ if($DEBUG >= 1) {
 										$team = $teams[$i];
 
 										echo '<button class="btn btn-success" type="submit" name="team" value="' . $team['id'] . '">' . $team['name'] . '</button>';
+									}
+									echo '</div>';
+
+									echo '<div style="padding: 10px;">';
+									if ($teamCursor) {
+										echo '<button class="btn btn-sm btn-primary" type="submit" name="setTeamCursor" value="0">Reset</button> ';
+									}
+									if ($nextTeamCursor) {
+										echo '<button class="btn btn-sm btn-primary" type="submit" name="setTeamCursor" value="' . $nextTeamCursor . '">More</button>';
 									}
 									echo '</div>';
 

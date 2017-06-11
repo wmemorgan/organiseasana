@@ -1,6 +1,6 @@
 <?php
 
-function getProjects($workspaceId, &$cursor, $limit = 20) {
+function getProjects($workspaceId, &$cursor, $limit = 10) {
 	$path = "workspaces/$workspaceId/projects?";
 	if ($limit) {
 		$path .= "&limit=$limit";

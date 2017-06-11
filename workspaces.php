@@ -32,12 +32,26 @@ function getWorkspace($workspaceId) {
 	return $result['data'];
 }
 
-function getTeams($organizationId) {
-	$result = asanaRequest("organizations/$organizationId/teams");
+function getTeams($organizationId, &$cursor, $limit = 10) {
+	$path = "organizations/$organizationId/teams?";
+	if ($limit) {
+		$path .= "&limit=$limit";
+	}
+	if ($cursor) {
+		$path .= "&offset=$cursor";
+	}
+
+	$result = asanaRequest($path);
 	if (isError($result))
 	{
         pre($result, "Error Loading Teams!", 'danger');
 		return;
+	}
+
+	if ($result['next_page']) {
+		$cursor = $result['next_page']['offset'];
+	} else {
+		$cursor = false;
 	}
 
 	return $result['data'];
