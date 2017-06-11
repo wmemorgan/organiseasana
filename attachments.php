@@ -10,16 +10,8 @@ function copyAttachments($taskId, $newTaskId) {
 		return;
 	}
 
-	global $APPENGINE;
-
 	foreach ($result['data'] as $attachment){
-
-		if ($APPENGINE) {
-			queueAttachment($taskId, $newTaskId, $attachment["id"], $attachment["name"]);
-		}
-		else {
-			copyAttachment($taskId, $newTaskId, $attachment["id"], $attachment["name"]);
-		}
+		queueAttachment($taskId, $newTaskId, $attachment["id"], $attachment["name"]);
 	}
 }
 

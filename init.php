@@ -18,12 +18,6 @@
 		setcookie("debug", $DEBUG);
 	}
 
-	global $APPENGINE;
-	$APPENGINE = false;
-	if (stream_resolve_include_path("google/appengine/api")) {
-		$APPENGINE = true;
-	}
-
 	global $pusher;
 	$pusher = new Pusher(
 	  $config['pusher_key'],

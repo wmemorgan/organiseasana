@@ -78,7 +78,6 @@ if($DEBUG >= 1) {
 	print "<h4>Parameters</h4>";
 	print "<pre>";
 	print(json_encode(array(
-		"APPENGINE" => $APPENGINE, 
 		"DEBUG" => $DEBUG,
 		"authToken" => $authToken
 		), JSON_PRETTY_PRINT));
@@ -211,125 +210,80 @@ if($DEBUG >= 1) {
 
 					// Run the copy operation
 					if ($copy) {
+						// Create a pusher channel
+						$channel = sha1(openssl_random_pseudo_bytes(30));
 
-						if ($APPENGINE) {
-							// Create a pusher channel
-							$channel = sha1(openssl_random_pseudo_bytes(30));
+						// Start task
+						require_once("google/appengine/api/taskqueue/PushTask.php");
 
-							// Start task
-							require_once("google/appengine/api/taskqueue/PushTask.php");
+						$params = [
+							'channel' => $channel,
+							'authToken' => $authToken,
+							'debug' => $DEBUG,
+							'targetWorkspace' => $targetWorkspaceId,
+							'copy' => 'projects',
+							'workspace' => $workspaceId,
+							'projects' => $projects,
+							'team' => $teamId
+						];
+						$task = new \google\appengine\api\taskqueue\PushTask('/process/project', $params);
+						$task_name = $task->add();
 
-							$params = [
-								'channel' => $channel,
-								'authToken' => $authToken,
-								'debug' => $DEBUG,
-								'targetWorkspace' => $targetWorkspaceId,
-								'copy' => 'projects',
-								'workspace' => $workspaceId,
-								'projects' => $projects,
-								'team' => $teamId
-							];
-							$task = new \google\appengine\api\taskqueue\PushTask('/process/project', $params);
-							$task_name = $task->add();
+						// Output script for listening to channel
+						?>
 
-							// Output script for listening to channel
-							?>
+						<h3 id="progress">Progress: 
+							<input type="hidden" name="channel" value="<?php echo $channel; ?>">
+							<input type="hidden" name="cancel" value="1">
+							<input class="btn btn-danger pull-right" type="submit" value="Cancel" >
+						</h3>
 
-							<h3 id="progress">Progress: 
-								<input type="hidden" name="channel" value="<?php echo $channel; ?>">
-								<input type="hidden" name="cancel" value="1">
-								<input class="btn btn-danger pull-right" type="submit" value="Cancel" >
-							</h3>
+						<div class="well" id="log">
+							Waiting in queue...<br>
+						</div>
+						<h3>New projects:</h3>
+						<div id="projects"></div>
+						<hr>
+						<script src="//js.pusher.com/2.2/pusher.min.js"></script>
+						<script>
+							var pusher = new Pusher("<?php echo $config['pusher_key']; ?>");
+							var channel = pusher.subscribe("<?php echo $channel; ?>");
+							channel.bind('progress', function(data) {
+								var message = data.message;
+								$('#log').append(message + "<br>");
+								$('#log').scrollTop(10000000);
+							});
+							channel.bind('created', function(project) {
+								$('#projects').append('<a class="btn btn-success btn-xs" target="asana" href="https://app.asana.com/0/' + project['id'] + '">' + project['name'] + '</a> ');
+							});
+							channel.bind('done', function(data) {
+								$('#projects').append("<hr>Done.");
+								pusher.unsubscribe("<?php echo $channel; ?>");
+							});
+							channel.bind('error', function(data) {
+								var message = JSON.stringify(data.api_response, null, 2);
+								$('#log').append('<h2>' + data.error + '</h2><pre class="text-danger">' + message + "</pre><br>");
+								$('#log').scrollTop(10000000);
+							});
 
-							<div class="well" id="log">
-								Waiting in queue...<br>
-							</div>
-							<h3>New projects:</h3>
-							<div id="projects"></div>
-							<hr>
-							<script src="//js.pusher.com/2.2/pusher.min.js"></script>
-							<script>
-								var pusher = new Pusher("<?php echo $config['pusher_key']; ?>");
-								var channel = pusher.subscribe("<?php echo $channel; ?>");
-								channel.bind('progress', function(data) {
-								  var message = data.message;
-								  $('#log').append(message + "<br>");
-								  $('#log').scrollTop(10000000);
-								});
-								channel.bind('created', function(project) {
-								  $('#projects').append('<a class="btn btn-success btn-xs" target="asana" href="https://app.asana.com/0/' + project['id'] + '">' + project['name'] + '</a> ');
-								});
-								channel.bind('done', function(data) {
-								  $('#projects').append("<hr>Done.");
-								  pusher.unsubscribe("<?php echo $channel; ?>");
-								});
-								channel.bind('error', function(data) {
-								  var message = JSON.stringify(data.api_response, null, 2);
-								  $('#log').append('<h2>' + data.error + '</h2><pre class="text-danger">' + message + "</pre><br>");
-								  $('#log').scrollTop(10000000);
-								});
+							$(function() { 
+								$('#mainForm').ajaxForm(function() { 
+									$('#log').append('<p class="text-danger">Cancelling job...</p><br>');
+									$('#log').scrollTop(10000000);
+								}); 
+							}); 
+						</script>
+						<?php
 
-								$(function() { 
-						            $('#mainForm').ajaxForm(function() { 
-									  $('#log').append('<p class="text-danger">Cancelling job...</p><br>');
-									  $('#log').scrollTop(10000000);
-						            }); 
-						        }); 
-							</script>
-							<?php
+						echo '<b>Done</b>';
+
+						echo '<h4>View in Asana</h4>';
+						echo '<div class="btn-group">';
+						for ($i = count($newProjects) - 1; $i >= 0; $i--) {
+							$project = $newProjects[$i];
+							echo '<a class="btn btn-success btn-xs" target="asana" href="https://app.asana.com/0/' . $project['id'] . '">' . $project['name'] . '</a>';
 						}
-						else {
-							$teamName = '';
-							if ($team)
-								$teamName = '/' . $team['name'];
-							echo '<h2>Copying Projects to '. $targetWorkspace['name'] . $teamName . '</h2>';
-
-							$newProjects = array();
-
-							for ($i = count($projects) - 1; $i >= 0; $i--) {
-								$project = getProject($projects[$i]);
-								$targetProjectName = $project['name'];
-								$notes = $project['notes'];
-
-								// Check for an existing project in the target workspace
-								$targetProjects = getProjects($targetWorkspaceId, false, false);
-								if ($DEBUG) pre($targetProjects);
-
-								$count = 2;
-								$found = false;
-								do {
-									$found = false;
-									for ($j = 0; $j < count($targetProjects); $j++) {
-										if (strcmp($targetProjects[$j]['name'], $targetProjectName) == 0) {
-											$targetProjectName = $project['name'] . ' ' . $count++;
-											$found = true;
-											break;
-										}
-									}
-								}
-								while ($found == true && $count < 100);
-
-								// Create target project
-								echo '<h4>Copying ' . $project['name'] . ' to ' . $targetWorkspace['name'] . $teamName . '/' . $targetProjectName . '</h4>';
-								flush();
-								$targetProject = createProject($targetWorkspaceId, $targetProjectName, $teamId, $notes);
-								$newProjects[] = $targetProject;
-
-								// Run copy
-								copyTasks($project['id'], $targetProject['id']);
-							}
-
-							echo '<b>Done</b>';
-
-							echo '<h4>View in Asana</h4>';
-							echo '<div class="btn-group">';
-							for ($i = count($newProjects) - 1; $i >= 0; $i--) {
-								$project = $newProjects[$i];
-								echo '<a class="btn btn-success btn-xs" target="asana" href="https://app.asana.com/0/' . $project['id'] . '">' . $project['name'] . '</a>';
-							}
-							echo '</div>';
-							
-						}
+						echo '</div>';
 					}
 
 					// Display copy options

@@ -20,54 +20,6 @@ function queueTasks($fromProjectId, $toProjectId, $offset = 0) {
 	$task_name = $job->add();
 }
 
-function copyTasks($fromProjectId, $toProjectId, $offset = 0)
-{
-    // GET Project
-	$result = asanaRequest("projects/$toProjectId");
-	if (isError($result))
-	{
-        pre($result, "Error Loading Project!", 'danger');
-		return;
-	}
-    $workspaceId = $result['data']['workspace']['id'];
-
-    // GET Project tasks
-    // TODO once OAuth is used, add support for external field
-    $result = asanaRequest("projects/$fromProjectId/tasks?opt_fields=assignee,assignee_status,completed,due_on,due_at,hearted,name,notes");
-	$tasks = $result['data'];
-
-	global $APPENGINE;
-
-    // copy Tasks
-    // TODO check timing and re-queue after 5mins
-    for ($i = count($tasks) - 1; $i >= 0; $i--)
-	{
-		$task = $tasks[$i];
-
-		$taskId = $task['id'];
-
-		$newTask = $task;
-		unset($newTask['id']);
-		$newTask['assignee'] = $newTask['assignee']['id'];
-		foreach ($newTask as $key => $value)
-		{
-			if (empty($value))
-			{
-				unset($newTask[$key]);
-			}
-		}
-
-		$newTask = createTask($workspaceId, $toProjectId, $newTask);
-		
-		if ($APPENGINE) {
-			queueTask($workspaceId, $taskId, $newTask);
-		}
-		else {
-			copyTask($workspaceId, $taskId, $newTask);
-		}
-	}
-}
-
 function queueTask($workspaceId, $taskId, $newTask, $copyTags = true, $copyAttachments = true) {
 	global $channel;
 	global $authToken;
@@ -137,6 +89,7 @@ function createTask($workspaceId, $task)
 {
 	// Unset projects
 	unset($task['projects']);
+	unset($task['memberships']);
 
 	// Validate task data
 	$task = cleanTask($task);
@@ -197,7 +150,7 @@ function copySubtasks($taskId, $newTaskId, $depth, $workspaceId, $copyTags = tru
 
 		    // get data for subtask
 		    // TODO external field
-		    $result = asanaRequest("tasks/$subtaskId?opt_fields=assignee,assignee_status,completed,due_on,due_at,hearted,name,notes");
+		    $result = asanaRequest("tasks/$subtaskId?opt_fields=assignee,assignee_status,completed,due_on,due_at,hearted,name,notes,memberships");
 		    $task = $result['data'];
 		    unset($task["id"]);
 		    
@@ -226,14 +179,7 @@ function copySubtasks($taskId, $newTaskId, $depth, $workspaceId, $copyTags = tru
 			$newsubtask = $result["data"];
 			$newSubId = $newsubtask['id'];
             
-            global $APPENGINE;
-            if ($APPENGINE) {
-            	queueSubtask($subtaskId, $newSubId, $workspaceId, $depth, $copyTags, $copyAttachments);
-            }
-            else {
-            	copySubtask($subtaskId, $newSubId, $workspaceId, $depth, $copyTags, $copyAttachments);
-            }
-
+			queueSubtask($subtaskId, $newSubId, $workspaceId, $depth, $copyTags, $copyAttachments);
         }
     }
 }

@@ -9,23 +9,18 @@ function asanaRequest($methodPath, $httpMethod = 'GET', $body = null, $cached = 
 {
 	global $authToken;
 	global $DEBUG;
-	global $APPENGINE;
 	global $ratelimit;
 
-	$key = false;
+	$key = sha1($authToken['refresh_token']) . ":" . $methodPath;
 
-	if ($APPENGINE && strcmp($httpMethod,'GET') == 0 && $cached) {
-		$key = sha1($authToken['refresh_token']) . ":" . $methodPath;
+	$data = getCached($key);
 
-		$data = getCached($key);
+	if ($DEBUG >= 2) {
+		pre(array('request' => $body, 'response' => $data), "Memcache: " . $methodPath);
+	}
 
-		if ($DEBUG >= 2) {
-			pre(array('request' => $body, 'response' => $data), "Memcache: " . $methodPath);
-		}
-
-		if ($data != false) {
-			return $data;
-		}
+	if ($data != false) {
+		return $data;
 	}
 
 	$access_token = getAccessToken();
@@ -152,8 +147,7 @@ function getAccessToken() {
 }
 
 function cache($key, $result) {
-	global $APPENGINE;
-	if ($APPENGINE && $key) {
+	if ($key) {
 		try {
 			getMemcache()->set($key, $result, false, 120);
 		} catch (Exception $e) {
@@ -163,14 +157,11 @@ function cache($key, $result) {
 }
 
 function getCached($key) {
-	global $APPENGINE;
-	if ($APPENGINE) {
-		try {
-			$data = getMemcache()->get($key);
-			return $data;
-		} catch (Exception $e) {
-			
-		}
+	try {
+		$data = getMemcache()->get($key);
+		return $data;
+	} catch (Exception $e) {
+		
 	}
 	return null;
 }
@@ -215,23 +206,16 @@ function incrementRequests($value = 1) {
 }
 
 function getRateLimit() {
-	global $APPENGINE;
 	global $authToken;
-	$ratelimit = false;
-	if ($APPENGINE) {
-		$key = sha1($authToken['refresh_token']) . ":ratelimit";
-		$ratelimit = getMemcache()->get($key);
-	}
+	$key = sha1($authToken['refresh_token']) . ":ratelimit";
+	$ratelimit = getMemcache()->get($key);
 	return $ratelimit;
 }
 
 function setRateLimit($ratelimit) {
-	global $APPENGINE;
 	global $authToken;
-	if ($APPENGINE) {
-		$key = sha1($authToken['refresh_token']) . ":ratelimit";
-		getMemcache()->set($key, $ratelimit);
-	}
+	$key = sha1($authToken['refresh_token']) . ":ratelimit";
+	getMemcache()->set($key, $ratelimit);
 	return $ratelimit;
 }
 

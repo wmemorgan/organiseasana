@@ -68,7 +68,7 @@
 			$targetProjectName = $project['name'];
 
 			// Check for an existing project in the target workspace
-			$targetProjects = getProjects($targetWorkspaceId);
+			$targetProjects = getAllProjects($targetWorkspaceId);
 			if ($DEBUG) pre($targetProjects);
 
 			$count = 2;
@@ -92,21 +92,28 @@
 		}
 
 		// Run copy
-		
-	    // GET Project tasks
-	    // TODO once OAuth is used, add support for external field
-	    $fromProjectId = $project['id'];
-	    $toProjectId = $targetProject['id'];
-	    incrementRequests(1);
-	    $url = "projects/$fromProjectId/tasks?opt_fields=assignee,assignee_status,completed,due_on,due_at,hearted,name,notes&limit=10";
-		if ($nextPageOffset != null) {
-			$url .= "&offset=$nextPageOffset";
-		}
-		$result = asanaRequest($url);
-		$tasks = $result['data'];
-		$nextPage = $result['next_page'];
+		$fromProjectId = $project['id'];
+		$toProjectId = $targetProject['id'];
+		$tasks = array();
+		$section = null;
+		if ($project['layout'] == "board") {
+			// Get sections
+			incrementRequests(1);
+			$nextSectionPage = $sectionPage;
+			$sections = getSections($fromProjectId, $nextSectionPage, 100);
 
-		global $APPENGINE;
+			// Select current section
+			
+			// Get section tasks
+			incrementRequests(1);
+			$nextTaskPage = $taskPage;
+			$tasks = getSectionTasks($section['id'], $nextTaskPage);
+		} else {
+			// Get Project tasks
+			incrementRequests(1);
+			$nextTaskPage = $taskPage;
+			$tasks = getProjectTasks($fromProjectId, $nextTaskPage);
+		}
 
 	    // copy Tasks
 	    // TODO check timing and re-queue after 5mins
@@ -180,14 +187,13 @@
 			}
 
 			$newTask = createTask($targetWorkspaceId, $newTask);
-			addTaskToProject($newTask, $toProjectId);
+			if ($section) {
+				addTaskToSection($newTask, $section);
+			} else {
+				addTaskToProject($newTask, $toProjectId);
+			}
 			
-			if ($APPENGINE) {
-				queueTask($targetWorkspaceId, $taskId, $newTask, $copyTags);
-			}
-			else {
-				copyTask($targetWorkspaceId, $taskId, $newTask, $copyTags);
-			}
+			queueTask($targetWorkspaceId, $taskId, $newTask, $copyTags);
 		}
 
 		if (!empty($nextPage)) {
