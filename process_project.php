@@ -11,27 +11,33 @@
 		return;
 	}
 
-	// Read task parameters
-	$targetWorkspaceId = $_POST['targetWorkspace'];
-	$workspaceId = $_POST['workspace'];
-	$projects = $_POST['projects'];
-
-	$teamId = false;
-	if (isset($_POST['team']))
-		$teamId = $_POST['team'];
-
-	$projectOffset = 0;
-	$currentProject = null;
-	$nextPageOffset = null;
-	if (isset($_POST['projectOffset'])) {
-		$projectOffset = $_POST['projectOffset'];
-		$nextPageOffset = $_POST['nextPageOffset'];
-		$currentProject = $_POST['currentProject'];
+	function postDefault($key, $default) {
+		if (isset($_POST[$key])) {
+			return $_POST[$key];
+		} else {
+			return $default;
+		}
 	}
 
-	$taskOffset = -1;
-	if (isset($_POST['taskOffset']))
-		$taskOffset = $_POST['taskOffset'];
+	// Read task parameters
+	$targetWorkspaceId = $_POST['targetWorkspaceId'];
+	$workspaceId = $_POST['workspaceId'];
+	$projects = $_POST['projects'];
+
+	$teamId = postDefault('teamId', false);
+
+	$projectOffset = postDefault('projectOffset', 0);
+	$targetProject = postDefault('targetProject', null);
+
+	$sectionPage = postDefault('sectionPage', null);
+	$sectionOffset = postDefault('sectionOffset', 0);
+	$targetSection = postDefault('targetSection', null);
+
+	$taskPage = postDefault('taskPage', null);
+	$taskOffset = postDefault('taskOffset', 0);
+
+	$nextSectionPage = null;
+	$nextTaskPage = null;
 
 	// Get some info
 	$team = null;
@@ -51,19 +57,49 @@
 		$teamName = '/' . $team['name'];
 	}
 
-	if ($taskOffset < 0) {
-		progress('Copying projects to '. $targetWorkspace['name'] . $teamName);
+	/** Requeue the current task with the current state of the copy */
+	function requeue($delay = 60) {
+		global $channel, $authToken, $targetWorkspaceId, $workspaceId, $projects, $teamId,
+			 $projectOffset, $targetProject,
+			 $sectionPage, $sectionOffset, $targetSection,
+			 $taskPage, $taskOffset,
+			 $copyTags, $DEBUG;
+
+		$params = [
+			'channel' => $channel,
+			'authToken' => $authToken,
+			'targetWorkspaceId' => $targetWorkspaceId,
+			'workspace' => $workspaceId,
+			'projects' => $projects,
+			'teamId' => $teamId,
+
+			'projectOffset' => $projectOffset,
+			'targetProject' => $targetProject,
+
+			'sectionPage' => $sectionPage,
+			'sectionOffset' => $sectionOffset,
+			'targetSection' => $targetSection,
+
+			'taskPage' => $taskPage,
+			'taskOffset' => $taskOffset,
+
+			'copyTags' => $copyTags,
+			'debug' => $DEBUG
+		];
+		if ($rateLimit > time()) {
+			$delay = $rateLimit - time() + 10;
+		}
+		$options = ['delay_seconds' => $delay];
+		$task = new \google\appengine\api\taskqueue\PushTask('/process/project', $params, $options);
+		$task_name = $task->add();
 	}
 
-	for ($i = $projectOffset; $i < count($projects); $i++) {
-		$project = getProject($projects[$i], false);
+	for (; $projectOffset < count($projects); $projectOffset++) {
+		$project = getProject($projects[$projectOffset], false);
 
 		// Create a new project if we're not in the middle of an existing copy
-		if ($currentProject) {
-			$targetProject = $currentProject;
-			$currentProject = null;
+		if ($targetProject) {
 			$targetProjectName = $targetProject['name'];
-			progress('Continuing copy to ' . $targetProjectName);
 		} else {
 			$targetProjectName = $project['name'];
 
@@ -86,14 +122,14 @@
 			while ($found == true && $count < 100);
 
 			// Create target project
-			p('Copying ' . $project['name'] . ' to ' . $targetWorkspace['name'] . $teamName . '/' . $targetProjectName);
+			progress('Copying ' . $project['name'] . ' to ' . $targetWorkspace['name'] . $teamName . '/' . $targetProjectName);
 			$targetProject = createProject($targetWorkspaceId, $targetProjectName, $teamId, $project);
 			notifyCreated($targetProject);
 		}
 
 		// Run copy
 		$fromProjectId = $project['id'];
-		$toProjectId = $targetProject['id'];
+		$targetProjectId = $targetProject['id'];
 		$tasks = array();
 		$section = null;
 		if ($project['layout'] == "board") {
@@ -103,6 +139,13 @@
 			$sections = getSections($fromProjectId, $nextSectionPage, 100);
 
 			// Select current section
+			$section = $sections[$sectionOffset];
+
+			// Create target section if not provided
+			if (!$targetSection) {
+				incrementRequests(1);
+				$targetSection = createSection($targetProjectId, $section['name']);
+			}
 			
 			// Get section tasks
 			incrementRequests(1);
@@ -115,15 +158,10 @@
 			$tasks = getProjectTasks($fromProjectId, $nextTaskPage);
 		}
 
-	    // copy Tasks
-	    // TODO check timing and re-queue after 5mins
-	    $start = 0;
-	    if ($taskOffset >= 0) {
-	    	$start = $taskOffset;
-	    }
-	    for ($j = $start; $j < count($tasks); $j++)
+		// copy Tasks
+		// TODO check timing and re-queue after 5mins
+		for (; $taskOffset < count($tasks); $taskOffset++)
 		{
-
 			// Potential calls to the API
 			// createTask: 2
 			// addToProject: 1
@@ -148,31 +186,11 @@
 			// Are there too many pending requests?
 			if ($pending > 90 || $rateLimit > time()) {
 				// Re-queue task creation at the current point
-				$params = [
-					'channel' => $channel,
-					'authToken' => $authToken,
-					'targetWorkspace' => $targetWorkspaceId,
-					'workspace' => $workspaceId,
-					'projects' => $projects,
-					'team' => $teamId,
-					'projectOffset' => $i,
-					'taskOffset' => $j,
-					'nextPageOffset' => $nextPageOffset,
-					'currentProject' => $targetProject,
-					'copyTags' => $copyTags
-				];
-				$delay = 60;
-				if ($rateLimit > time()) {
-					$delay = $rateLimit - time() + 10;
-				}
-				$options = ['delay_seconds' => $delay];
-				$task = new \google\appengine\api\taskqueue\PushTask('/process/project', $params, $options);
-				$task_name = $task->add();
+				requeue(60);
 				return;
 			}
 
-			$task = $tasks[$j];
-
+			$task = $tasks[$taskOffset];
 			$taskId = $task['id'];
 
 			$newTask = $task;
@@ -186,50 +204,60 @@
 				}
 			}
 
+			progress("Creating task '" . $newTask['name'] . "'");
 			$newTask = createTask($targetWorkspaceId, $newTask);
-			if ($section) {
-				addTaskToSection($newTask, $section);
+			if ($targetSection) {
+				addTaskToSection($newTask, $targetProjectId, $targetSection['id']);
 			} else {
-				addTaskToProject($newTask, $toProjectId);
+				addTaskToProject($newTask, $targetProjectId);
 			}
 			
 			queueTask($targetWorkspaceId, $taskId, $newTask, $copyTags);
 		}
 
-		if (!empty($nextPage)) {
+		// Do we have more task pages?
+		if (!empty($nextTaskPage)) {
 			// Re-queue task creation at the start of the next page
-			$params = [
-				'channel' => $channel,
-				'authToken' => $authToken,
-				'targetWorkspace' => $targetWorkspaceId,
-				'workspace' => $workspaceId,
-				'projects' => $projects,
-				'team' => $teamId,
-				'projectOffset' => $i,
-				'taskOffset' => 0,
-				'nextPageOffset' => $nextPage['offset'],
-				'currentProject' => $targetProject,
-				'copyTags' => $copyTags
-			];
-			$delay = 60;
-			if ($rateLimit > time()) {
-				$delay = $rateLimit - time() + 10;
-			}
-			$options = ['delay_seconds' => $delay];
-			$task = new \google\appengine\api\taskqueue\PushTask('/process/project', $params, $options);
-			$task_name = $task->add();
+			$taskPage = $nextTaskPage;
+			$taskOffset = 0;
+			requeue(60);
 			return;
 		}
 
-		$params = [
-			'channel' => $channel,
-			'authToken' => $authToken
-		];
-		$delay = 60;
-		$options = ['delay_seconds' => $delay];
-		$task = new \google\appengine\api\taskqueue\PushTask('/process/complete', $params, $options);
-		$task_name = $task->add();
+		// Reset task paging
+		$taskPage = null;
+		$taskOffset = 0;
 
+		if ($targetSection) {
+			// Do we have more sections in the current page?
+			$targetSection = null;
+			$sectionOffset ++;
+			if ($sectionOffset < count($sections)) {
+				requeue(0);
+				return;
+			}
+
+			// Do we have more section pages?
+			$sectionOffset = 0;
+			if (!empty($nextSectionPage)) {
+				$sectionPage = $nextSectionPage;
+				requeue(0);
+				return;
+			}
+		}
+
+		// Reset for next project
+		$sectionPage = null;
+		$targetProject = null;
 	}
+
+	$params = [
+		'channel' => $channel,
+		'authToken' => $authToken
+	];
+	$delay = 60;
+	$options = ['delay_seconds' => $delay];
+	$task = new \google\appengine\api\taskqueue\PushTask('/process/complete', $params, $options);
+	$task_name = $task->add();
 
 ?>

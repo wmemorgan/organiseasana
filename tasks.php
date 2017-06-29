@@ -85,6 +85,18 @@ function addTaskToProject($task, $projectId) {
 	$result = asanaRequest("tasks/$taskId/addProject", 'POST', $data);
 }
 
+function addTaskToSection($task, $projectId, $sectionId) {
+
+	// Set projects
+	$task['projects'] = array($projectId);
+	$taskId = $task['id'];
+	$data = array('data' => array(
+		'project' => $projectId,
+		'section' => $sectionId,
+	));
+	$result = asanaRequest("tasks/$taskId/addProject", 'POST', $data);
+}
+
 function createTask($workspaceId, $task)
 {
 	// Unset projects

@@ -13,14 +13,18 @@ function asanaRequest($methodPath, $httpMethod = 'GET', $body = null, $cached = 
 
 	$key = sha1($authToken['refresh_token']) . ":" . $methodPath;
 
-	$data = getCached($key);
+	$data = false;
+	$cached = $cached && $httpMethod == 'GET';
+	if ($cached) {
+		$data = getCached($key);
 
-	if ($DEBUG >= 2) {
-		pre(array('request' => $body, 'response' => $data), "Memcache: " . $methodPath);
-	}
+		if ($DEBUG >= 2) {
+			pre(array('request' => $body, 'response' => $data), "Memcache: " . $methodPath);
+		}
 
-	if ($data != false) {
-		return $data;
+		if ($data != false) {
+			return $data;
+		}
 	}
 
 	$access_token = getAccessToken();
@@ -78,7 +82,9 @@ function asanaRequest($methodPath, $httpMethod = 'GET', $body = null, $cached = 
 
 	curl_close($ch);
 
-	cache($key, $result);
+	if ($cached) {
+		cache($key, $result);
+	}
 
 	if ($DEBUG >= 2) {
 		pre(array('request' => $body, 'response' => $result), "$httpMethod " . $url);
@@ -272,6 +278,7 @@ function isError($result) {
 
 require_once 'workspaces.php';
 require_once 'projects.php';
+require_once 'sections.php';
 require_once 'tasks.php';
 require_once 'taskdetails.php';
 require_once 'attachments.php';

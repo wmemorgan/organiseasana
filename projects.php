@@ -1,7 +1,7 @@
 <?php
 
 function getAllProjects($workspaceId) {
-	$cursor = 0;
+	$cursor = null;
 	$limit = 100;
 
 	$projects = array();
@@ -80,15 +80,17 @@ function createProject($workspaceId, $name, $teamId, $project)
 
 function getProjectTasks($projectId, &$cursor, $limit = 20) {
 	$url = "projects/$projectId/tasks?opt_fields=assignee,assignee_status,completed,due_on,due_at,hearted,name,notes";
-	if ($nextPageOffset != null) {
-		$url .= "&offset=$nextPageOffset";
+	if ($cursor) {
+		$url .= "&offset=$cursor";
 	}
 	if ($limit) {
 		$url .= "&limit=$limit";
 	}
+
+	$result = asanaRequest($url);
 	if (isError($result))
 	{
-        pre($result, "Error Loading Projects!", 'danger');
+        pre($result, "Error loading tasks from project '$projectId'", 'danger');
 		return;
 	}
 
