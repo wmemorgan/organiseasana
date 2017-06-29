@@ -32,9 +32,11 @@
 	$sectionPage = postDefault('sectionPage', null);
 	$sectionOffset = postDefault('sectionOffset', 0);
 	$targetSection = postDefault('targetSection', null);
+	$lastSectionId = postDefault('lastSectionId', null);
 
 	$taskPage = postDefault('taskPage', null);
 	$taskOffset = postDefault('taskOffset', 0);
+	$lastTaskId = postDefault('lastTaskId', null);
 
 	$nextSectionPage = null;
 	$nextTaskPage = null;
@@ -61,8 +63,8 @@
 	function requeue($delay = 60) {
 		global $channel, $authToken, $targetWorkspaceId, $workspaceId, $projects, $teamId,
 			 $projectOffset, $targetProject,
-			 $sectionPage, $sectionOffset, $targetSection,
-			 $taskPage, $taskOffset,
+			 $sectionPage, $sectionOffset, $targetSection, $lastSectionId,
+			 $taskPage, $taskOffset, $lastTaskId,
 			 $copyTags, $DEBUG;
 
 		$params = [
@@ -79,9 +81,11 @@
 			'sectionPage' => $sectionPage,
 			'sectionOffset' => $sectionOffset,
 			'targetSection' => $targetSection,
+			'lastSectionId' => $lastSectionId,
 
 			'taskPage' => $taskPage,
 			'taskOffset' => $taskOffset,
+			'lastTaskId' => $lastTaskId,
 
 			'copyTags' => $copyTags,
 			'debug' => $DEBUG
@@ -140,6 +144,8 @@
 
 			// Select current section
 			$section = $sections[$sectionOffset];
+			$sectionId = $section['id'];
+			$lastSectionId = $sectionId;
 
 			// Create target section if not provided
 			if (!$targetSection) {
@@ -150,12 +156,12 @@
 			// Get section tasks
 			incrementRequests(1);
 			$nextTaskPage = $taskPage;
-			$tasks = getSectionTasks($section['id'], $nextTaskPage);
+			$tasks = getSectionTasks($sectionId, $nextTaskPage, 100, $lastTaskId);
 		} else {
 			// Get Project tasks
 			incrementRequests(1);
 			$nextTaskPage = $taskPage;
-			$tasks = getProjectTasks($fromProjectId, $nextTaskPage);
+			$tasks = getProjectTasks($fromProjectId, $nextTaskPage, 100, $lastTaskId);
 		}
 
 		// copy Tasks
@@ -192,6 +198,7 @@
 
 			$task = $tasks[$taskOffset];
 			$taskId = $task['id'];
+			$lastTaskId = $taskId;
 
 			$newTask = $task;
 			unset($newTask['id']);

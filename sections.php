@@ -1,6 +1,6 @@
 <?php
 
-function getSections($projectId, &$cursor, $limit = 10) {
+function getSections($projectId, &$cursor, $limit = 10, $lastSectionId = null) {
 	$path = "projects/$projectId/sections?";
 	if ($limit) {
 		$path .= "&limit=$limit";
@@ -57,7 +57,7 @@ function createSection($projectId, $name)
 	return $result;
 }
 
-function getSectionTasks($sectionId, &$cursor, $limit = 20) {
+function getSectionTasks($sectionId, &$cursor, $limit = 20, $lastTaskId = null) {
 	$url = "sections/$sectionId/tasks?opt_fields=assignee,assignee_status,completed,due_on,due_at,hearted,name,notes";
 	if ($cursor) {
 		$url .= "&offset=$cursor";
@@ -66,6 +66,7 @@ function getSectionTasks($sectionId, &$cursor, $limit = 20) {
 		$url .= "&limit=$limit";
 	}
 
+	// TODO handle pagination token expiry
 	$result = asanaRequest($url);
 	if (isError($result))
 	{
