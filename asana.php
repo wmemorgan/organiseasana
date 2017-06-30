@@ -9,14 +9,13 @@ function asanaRequest($methodPath, $httpMethod = 'GET', $body = null, $cached = 
 {
 	global $authToken;
 	global $DEBUG;
-	global $APPENGINE;
 	global $ratelimit;
 
-	$key = false;
+	$key = sha1($authToken['refresh_token']) . ":" . $methodPath;
 
-	if ($APPENGINE && strcmp($httpMethod,'GET') == 0 && $cached) {
-		$key = sha1($authToken['refresh_token']) . ":" . $methodPath;
-
+	$data = false;
+	$cached = $cached && $httpMethod == 'GET';
+	if ($cached) {
 		$data = getCached($key);
 
 		if ($DEBUG >= 2) {
@@ -43,10 +42,6 @@ function asanaRequest($methodPath, $httpMethod = 'GET', $body = null, $cached = 
 	curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $httpMethod);
 	curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
 
-    // SSL cert of Asana is selfmade
-    // curl_setopt ($ch, CURLOPT_SSL_VERIFYHOST, 0);
-    // curl_setopt ($ch, CURLOPT_SSL_VERIFYPEER, 0);
-
 	$jbody = $body;
 	if ($jbody)
 	{
@@ -57,6 +52,7 @@ function asanaRequest($methodPath, $httpMethod = 'GET', $body = null, $cached = 
 		curl_setopt($ch, CURLOPT_POSTFIELDS, $jbody);
 	}
 
+	$error = null;
 	for ($i = 0; $i < 10; $i++) {
 		if ($ratelimit > time()) {
 			if ($wait) {
@@ -83,10 +79,12 @@ function asanaRequest($methodPath, $httpMethod = 'GET', $body = null, $cached = 
 
 	curl_close($ch);
 
-	cache($key, $result);
+	if ($cached) {
+		cache($key, $result);
+	}
 
 	if ($DEBUG >= 2) {
-		pre(array('request' => $body, 'response' => $result), "$httpMethod " . $url);
+		pre(array('request' => $body, 'response' => $result, 'error' => $error), "$httpMethod " . $url);
 	}
 	return $result;
 }
@@ -152,8 +150,7 @@ function getAccessToken() {
 }
 
 function cache($key, $result) {
-	global $APPENGINE;
-	if ($APPENGINE && $key) {
+	if ($key) {
 		try {
 			getMemcache()->set($key, $result, false, 120);
 		} catch (Exception $e) {
@@ -163,14 +160,11 @@ function cache($key, $result) {
 }
 
 function getCached($key) {
-	global $APPENGINE;
-	if ($APPENGINE) {
-		try {
-			$data = getMemcache()->get($key);
-			return $data;
-		} catch (Exception $e) {
-			
-		}
+	try {
+		$data = getMemcache()->get($key);
+		return $data;
+	} catch (Exception $e) {
+		
 	}
 	return null;
 }
@@ -215,23 +209,16 @@ function incrementRequests($value = 1) {
 }
 
 function getRateLimit() {
-	global $APPENGINE;
 	global $authToken;
-	$ratelimit = false;
-	if ($APPENGINE) {
-		$key = sha1($authToken['refresh_token']) . ":ratelimit";
-		$ratelimit = getMemcache()->get($key);
-	}
+	$key = sha1($authToken['refresh_token']) . ":ratelimit";
+	$ratelimit = getMemcache()->get($key);
 	return $ratelimit;
 }
 
 function setRateLimit($ratelimit) {
-	global $APPENGINE;
 	global $authToken;
-	if ($APPENGINE) {
-		$key = sha1($authToken['refresh_token']) . ":ratelimit";
-		getMemcache()->set($key, $ratelimit);
-	}
+	$key = sha1($authToken['refresh_token']) . ":ratelimit";
+	getMemcache()->set($key, $ratelimit);
 	return $ratelimit;
 }
 
@@ -286,8 +273,13 @@ function isError($result) {
 	return isset($result['errors']) || !isset($result['data']);
 }
 
+function isPaginationError($result) {
+	return isset($result['errors']) && $result['errors']['message'] == "offset: Your pagination token has expired.";
+}
+
 require_once 'workspaces.php';
 require_once 'projects.php';
+require_once 'sections.php';
 require_once 'tasks.php';
 require_once 'taskdetails.php';
 require_once 'attachments.php';

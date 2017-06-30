@@ -61,6 +61,56 @@
 		}
 	}
 
+	if ($authToken) {
+
+		$targetWorkspace = null;
+		$team = null;
+
+		if ($targetWorkspaceId) {
+			$targetWorkspace = getWorkspace($targetWorkspaceId);
+		}
+
+		if ($DEBUG) pre($targetWorkspace, "Target Workspace");
+
+		// Do we have what we need to run a copy?
+		if ($targetWorkspaceId && $projects) {
+			if (isOrganisation($targetWorkspace)) {
+				if ($teamId) {
+					$team = getTeam($targetWorkspaceId, $teamId);
+					if ($DEBUG) pre($team, "Team");
+					if ($team)
+						$copy = true;
+				}
+			}
+		}
+
+		// Run the copy operation
+		if ($copy) {
+			// Create a pusher channel
+			$channel = sha1(openssl_random_pseudo_bytes(30));
+
+			// Start task
+			require_once("google/appengine/api/taskqueue/PushTask.php");
+
+			$params = [
+				'channel' => $channel,
+				'authToken' => $authToken,
+				'debug' => $DEBUG,
+				'targetWorkspaceId' => $targetWorkspaceId,
+				'copy' => 'projects',
+				'workspaceId' => $workspaceId,
+				'projects' => $projects,
+				'teamId' => $teamId
+			];
+			$task = new \google\appengine\api\taskqueue\PushTask('/process/project', $params);
+			$task_name = $task->add();
+
+			$host = $_SERVER['HTTP_HOST'];
+			$url = 'https://' . $host . "?channel=$channel&debug=$DEBUG";
+			header('Location: ' . $url, true, 303);
+			die();
+		}
+
 if($DEBUG >= 1) {
 ?>
 <div class="bs-callout bs-callout-info">
@@ -78,8 +128,8 @@ if($DEBUG >= 1) {
 	print "<h4>Parameters</h4>";
 	print "<pre>";
 	print(json_encode(array(
-		"APPENGINE" => $APPENGINE, 
 		"DEBUG" => $DEBUG,
+		"channel" => $channel,
 		"authToken" => $authToken
 		), JSON_PRETTY_PRINT));
 	print "</pre>\n";
@@ -174,6 +224,9 @@ if($DEBUG >= 1) {
 				<li>
 					<b>9th March 2017:</b> Bug fix for duplicate tasks being copied, and errors when copying projects with tags to a personal workspace.
 				</li>
+				<li>
+					<b>29th June 2017:</b> Added support for board-style projects.
+				</li>
 			</ul>
 			<form id="mainForm" role="form" method="POST">
 				<div class="row">
@@ -186,150 +239,66 @@ if($DEBUG >= 1) {
 					</div>
 				</div>
 
-				<?php if ($authToken) {
+				<?php 
 
-					$targetWorkspace = null;
-					$team = null;
+					if ($channel) {
+						// Output script for listening to channel
+						?>
+						<hr>
+						<div class="bs-callout bs-callout-info">
+							Due to the rate limits imposed by the Asana API,
+							the copy may take some time (approximately 10-15 tasks per minute). Please be patient.
+						</div>
+						<h3 id="progress">Progress: 
+							<input type="hidden" name="channel" value="<?php echo $channel; ?>">
+							<input type="hidden" name="cancel" value="1">
+							<input class="btn btn-danger pull-right" type="submit" value="Cancel" >
+						</h3>
 
-					if ($targetWorkspaceId) {
-						$targetWorkspace = getWorkspace($targetWorkspaceId);
-					}
+						<div class="well" id="log">
+							Waiting for status...<br>
+						</div>
+						<h3>New projects:</h3>
+						<div id="projects"></div>
+						<hr>
+						<script src="//js.pusher.com/2.2/pusher.min.js"></script>
+						<script>
+							var startTime = new Date().getTime();
+							var pusher = new Pusher("<?php echo $config['pusher_key']; ?>");
+							var channel = pusher.subscribe("<?php echo $channel; ?>");
+							channel.bind('progress', function(data) {
+								var message = data.message;
+								var now = new Date();
+								var elapsed = now.getTime() - startTime;
+								var seconds = elapsed / 1000;
+								var minutes = Math.floor(seconds / 60);
+								seconds = Math.floor(seconds % 60);
 
-					if ($DEBUG) pre($targetWorkspace, "Target Workspace");
+								$('#log').append(now + " (" + minutes + "m " + seconds + "s) - ");
+								$('#log').append(message + "<br>");
+								$('#log').scrollTop(10000000);
+							});
+							channel.bind('created', function(project) {
+								$('#projects').append('<a class="btn btn-success btn-xs" target="asana" href="https://app.asana.com/0/' + project['id'] + '">' + project['name'] + '</a> ');
+							});
+							channel.bind('done', function(data) {
+								$('#projects').append("<hr>Done.");
+								pusher.unsubscribe("<?php echo $channel; ?>");
+							});
+							channel.bind('error', function(data) {
+								var message = JSON.stringify(data.api_response, null, 2);
+								$('#log').append('<h2>' + data.error + '</h2><pre class="text-danger">' + message + "</pre><br>");
+								$('#log').scrollTop(10000000);
+							});
 
-					// Do we have what we need to run a copy?
-					if ($targetWorkspaceId && $projects) {
-						if (isOrganisation($targetWorkspace)) {
-							if ($teamId) {
-								$team = getTeam($targetWorkspaceId, $teamId);
-								if ($DEBUG) pre($team, "Team");
-								if ($team)
-									$copy = true;
-							}
-						}
-					}
-
-					// Run the copy operation
-					if ($copy) {
-
-						if ($APPENGINE) {
-							// Create a pusher channel
-							$channel = sha1(openssl_random_pseudo_bytes(30));
-
-							// Start task
-							require_once("google/appengine/api/taskqueue/PushTask.php");
-
-							$params = [
-								'channel' => $channel,
-								'authToken' => $authToken,
-								'debug' => $DEBUG,
-								'targetWorkspace' => $targetWorkspaceId,
-								'copy' => 'projects',
-								'workspace' => $workspaceId,
-								'projects' => $projects,
-								'team' => $teamId
-							];
-							$task = new \google\appengine\api\taskqueue\PushTask('/process/project', $params);
-							$task_name = $task->add();
-
-							// Output script for listening to channel
-							?>
-
-							<h3 id="progress">Progress: 
-								<input type="hidden" name="channel" value="<?php echo $channel; ?>">
-								<input type="hidden" name="cancel" value="1">
-								<input class="btn btn-danger pull-right" type="submit" value="Cancel" >
-							</h3>
-
-							<div class="well" id="log">
-								Waiting in queue...<br>
-							</div>
-							<h3>New projects:</h3>
-							<div id="projects"></div>
-							<hr>
-							<script src="//js.pusher.com/2.2/pusher.min.js"></script>
-							<script>
-								var pusher = new Pusher("<?php echo $config['pusher_key']; ?>");
-								var channel = pusher.subscribe("<?php echo $channel; ?>");
-								channel.bind('progress', function(data) {
-								  var message = data.message;
-								  $('#log').append(message + "<br>");
-								  $('#log').scrollTop(10000000);
-								});
-								channel.bind('created', function(project) {
-								  $('#projects').append('<a class="btn btn-success btn-xs" target="asana" href="https://app.asana.com/0/' + project['id'] + '">' + project['name'] + '</a> ');
-								});
-								channel.bind('done', function(data) {
-								  $('#projects').append("<hr>Done.");
-								  pusher.unsubscribe("<?php echo $channel; ?>");
-								});
-								channel.bind('error', function(data) {
-								  var message = JSON.stringify(data.api_response, null, 2);
-								  $('#log').append('<h2>' + data.error + '</h2><pre class="text-danger">' + message + "</pre><br>");
-								  $('#log').scrollTop(10000000);
-								});
-
-								$(function() { 
-						            $('#mainForm').ajaxForm(function() { 
-									  $('#log').append('<p class="text-danger">Cancelling job...</p><br>');
-									  $('#log').scrollTop(10000000);
-						            }); 
-						        }); 
-							</script>
-							<?php
-						}
-						else {
-							$teamName = '';
-							if ($team)
-								$teamName = '/' . $team['name'];
-							echo '<h2>Copying Projects to '. $targetWorkspace['name'] . $teamName . '</h2>';
-
-							$newProjects = array();
-
-							for ($i = count($projects) - 1; $i >= 0; $i--) {
-								$project = getProject($projects[$i]);
-								$targetProjectName = $project['name'];
-								$notes = $project['notes'];
-
-								// Check for an existing project in the target workspace
-								$targetProjects = getProjects($targetWorkspaceId, false, false);
-								if ($DEBUG) pre($targetProjects);
-
-								$count = 2;
-								$found = false;
-								do {
-									$found = false;
-									for ($j = 0; $j < count($targetProjects); $j++) {
-										if (strcmp($targetProjects[$j]['name'], $targetProjectName) == 0) {
-											$targetProjectName = $project['name'] . ' ' . $count++;
-											$found = true;
-											break;
-										}
-									}
-								}
-								while ($found == true && $count < 100);
-
-								// Create target project
-								echo '<h4>Copying ' . $project['name'] . ' to ' . $targetWorkspace['name'] . $teamName . '/' . $targetProjectName . '</h4>';
-								flush();
-								$targetProject = createProject($targetWorkspaceId, $targetProjectName, $teamId, $notes);
-								$newProjects[] = $targetProject;
-
-								// Run copy
-								copyTasks($project['id'], $targetProject['id']);
-							}
-
-							echo '<b>Done</b>';
-
-							echo '<h4>View in Asana</h4>';
-							echo '<div class="btn-group">';
-							for ($i = count($newProjects) - 1; $i >= 0; $i--) {
-								$project = $newProjects[$i];
-								echo '<a class="btn btn-success btn-xs" target="asana" href="https://app.asana.com/0/' . $project['id'] . '">' . $project['name'] . '</a>';
-							}
-							echo '</div>';
-							
-						}
+							$(function() { 
+								$('#mainForm').ajaxForm(function() { 
+									$('#log').append('<p class="text-danger">Cancelling job...</p><br>');
+									$('#log').scrollTop(10000000);
+								}); 
+							}); 
+						</script>
+						<?php
 					}
 
 					// Display copy options
@@ -481,7 +450,8 @@ if($DEBUG >= 1) {
 				<p>Source code for this tool can be found at <a href="https://bitbucket.org/mikehouston/organiseasana">https://bitbucket.org/mikehouston/organiseasana</a></p>
 				<p>The implementation of the copy operation is based on <a href="https://gist.github.com/AWeg/5814427">https://gist.github.com/AWeg/5814427</a></p>
 				<h4>Privacy</h4>
-				<p>No data is stored on the server - the API key is not retained between calls. No cookies are stored, unless you request the API key to be remembered.</p>
+				<p>No data is stored on the server - the API key is not retained between calls. No permanent cookies are stored, and your login token is only stored 
+				in a temporary cookie which is cleared when you close your browser.</p>
 				<h4>No Warranty</h4>
 				<p>This tool does not delete any data, and will not modifiy any existing projects (a new copy is made each time)</p>
 				<p>No warranty is made however - use at your own risk</p>

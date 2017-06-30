@@ -20,54 +20,6 @@ function queueTasks($fromProjectId, $toProjectId, $offset = 0) {
 	$task_name = $job->add();
 }
 
-function copyTasks($fromProjectId, $toProjectId, $offset = 0)
-{
-    // GET Project
-	$result = asanaRequest("projects/$toProjectId");
-	if (isError($result))
-	{
-        pre($result, "Error Loading Project!", 'danger');
-		return;
-	}
-    $workspaceId = $result['data']['workspace']['id'];
-
-    // GET Project tasks
-    // TODO once OAuth is used, add support for external field
-    $result = asanaRequest("projects/$fromProjectId/tasks?opt_fields=assignee,assignee_status,completed,due_on,due_at,hearted,name,notes");
-	$tasks = $result['data'];
-
-	global $APPENGINE;
-
-    // copy Tasks
-    // TODO check timing and re-queue after 5mins
-    for ($i = count($tasks) - 1; $i >= 0; $i--)
-	{
-		$task = $tasks[$i];
-
-		$taskId = $task['id'];
-
-		$newTask = $task;
-		unset($newTask['id']);
-		$newTask['assignee'] = $newTask['assignee']['id'];
-		foreach ($newTask as $key => $value)
-		{
-			if (empty($value))
-			{
-				unset($newTask[$key]);
-			}
-		}
-
-		$newTask = createTask($workspaceId, $toProjectId, $newTask);
-		
-		if ($APPENGINE) {
-			queueTask($workspaceId, $taskId, $newTask);
-		}
-		else {
-			copyTask($workspaceId, $taskId, $newTask);
-		}
-	}
-}
-
 function queueTask($workspaceId, $taskId, $newTask, $copyTags = true, $copyAttachments = true) {
 	global $channel;
 	global $authToken;
@@ -133,10 +85,23 @@ function addTaskToProject($task, $projectId) {
 	$result = asanaRequest("tasks/$taskId/addProject", 'POST', $data);
 }
 
+function addTaskToSection($task, $projectId, $sectionId) {
+
+	// Set projects
+	$task['projects'] = array($projectId);
+	$taskId = $task['id'];
+	$data = array('data' => array(
+		'project' => $projectId,
+		'section' => $sectionId,
+	));
+	$result = asanaRequest("tasks/$taskId/addProject", 'POST', $data);
+}
+
 function createTask($workspaceId, $task)
 {
 	// Unset projects
 	unset($task['projects']);
+	unset($task['memberships']);
 
 	// Validate task data
 	$task = cleanTask($task);
@@ -197,7 +162,7 @@ function copySubtasks($taskId, $newTaskId, $depth, $workspaceId, $copyTags = tru
 
 		    // get data for subtask
 		    // TODO external field
-		    $result = asanaRequest("tasks/$subtaskId?opt_fields=assignee,assignee_status,completed,due_on,due_at,hearted,name,notes");
+		    $result = asanaRequest("tasks/$subtaskId?opt_fields=assignee,assignee_status,completed,due_on,due_at,hearted,name,notes,memberships");
 		    $task = $result['data'];
 		    unset($task["id"]);
 		    
@@ -219,26 +184,19 @@ function copySubtasks($taskId, $newTaskId, $depth, $workspaceId, $copyTags = tru
 			}
 
 			if (isError($result)) {
-				pre($result, "Failed to create subtask!", 'danger');
+				pre($result, "Failed to create subtask", 'danger');
 				return;
 			}
 
 			$newsubtask = $result["data"];
 			$newSubId = $newsubtask['id'];
             
-            global $APPENGINE;
-            if ($APPENGINE) {
-            	queueSubtask($subtaskId, $newSubId, $workspaceId, $depth, $copyTags, $copyAttachments);
-            }
-            else {
-            	copySubtask($subtaskId, $newSubId, $workspaceId, $depth, $copyTags, $copyAttachments);
-            }
-
+			queueSubtask($subtask, $newSubId, $workspaceId, $depth, $copyTags, $copyAttachments);
         }
     }
 }
 
-function queueSubtask($subtaskId, $newSubId, $workspaceId, $depth, $copyTags = true, $copyAttachments = true) {
+function queueSubtask($subtask, $newSubId, $workspaceId, $depth, $copyTags = true, $copyAttachments = true) {
 	global $channel;
 	global $authToken;
 	global $DEBUG;
@@ -250,7 +208,8 @@ function queueSubtask($subtaskId, $newSubId, $workspaceId, $depth, $copyTags = t
 		'channel' => $channel,
 		'authToken' => $authToken,
 		'copy' => 'subtask',
-		'subtaskId' => $subtaskId,
+		'subtaskId' => $subtask['id'],
+		'subtask' => $subtask,
 		'newSubId' => $newSubId,
 		'workspaceId' => $workspaceId,
 		'depth' => $depth,
@@ -272,4 +231,69 @@ function copySubtask($subtaskId, $newSubId, $workspaceId, $depth, $copyTags = tr
 	}
 
     copySubtasks($subtaskId, $newSubId, $depth, $workspaceId, $copyTags, $copyAttachments);
+}
+
+function getTasks($parentPath, &$cursor, $limit = 20, $lastTaskId = null) {
+	$baseUrl = "$parentPath/tasks?opt_fields=assignee,assignee_status,completed,due_on,due_at,hearted,name,notes";
+	if ($limit) {
+		$baseUrl .= "&limit=$limit";
+	}
+	$url = $baseUrl;
+	if ($cursor) {
+		$url .= "&offset=$cursor";
+	}
+
+	$result = asanaRequest($url);
+
+	// Handle pagination token expiry
+	if (isPaginationError($result) && $lastTaskId) {
+		progress("Re-querying tasks - pagination token expired");
+		$url = $baseUrl;
+		$found = false;
+		for (;;) {
+			$result = asanaRequest($url);
+			if ($found || isError($result)) {
+				break;
+			}
+
+			// Update cursor
+			if ($result['next_page']) {
+				$cursor = $result['next_page']['offset'];
+			} else {
+				$cursor = false;
+			}
+
+			$tasks = $result['data'];
+			for ($i = 0; $i < count($tasks); $i++) {
+				$task = $tasks[$i];
+				if ($task['id'] == $lastTaskId) {
+					if ($i < count($tasks) - 1) {
+						return array_slice($tasks, $i + 1);
+					} else {
+						$found = true;
+					}
+				}
+			}
+
+			if ($cursor) {
+				$url = $baseUrl . "&offset=" . $cursor;
+			} else {
+				pre(null, "Unable to locate task $lastTaskId while re-paginating $parentPath", 'danger');
+				return;
+			}
+		}
+	}
+	
+	if (isError($result)) {
+        pre($result, "Error loading tasks from $parentPath", 'danger');
+		return;
+	}
+
+	if ($result['next_page']) {
+		$cursor = $result['next_page']['offset'];
+	} else {
+		$cursor = false;
+	}
+
+	return $result['data'];
 }

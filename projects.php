@@ -1,5 +1,20 @@
 <?php
 
+function getAllProjects($workspaceId) {
+	$cursor = null;
+	$limit = 100;
+
+	$projects = array();
+	do {
+		$page = getProjects($workspaceId, $cursor, $limit);
+		if ($page) {
+			$projects = array_merge($projects, $page);
+		}
+	} while ($cursor);
+
+	return $projects;
+}
+
 function getProjects($workspaceId, &$cursor, $limit = 10) {
 	$path = "workspaces/$workspaceId/projects?";
 	if ($limit) {
@@ -41,8 +56,8 @@ function createProject($workspaceId, $name, $teamId, $project)
 	p("Creating project: " . $name);
 	$data = array('data' => array(
 		'name' => $name,
-		'workspace' => $workspaceId
-		// 'layout' => $project['layout']
+		'workspace' => $workspaceId,
+		'layout' => $project['layout']
 	));
 	if ($teamId)
 		$data['data']['team'] = $teamId;
@@ -61,4 +76,8 @@ function createProject($workspaceId, $name, $teamId, $project)
 	}
 
 	return $result;
+}
+
+function getProjectTasks($projectId, &$cursor, $limit = 20, $lastTaskId = null) {
+	return getTasks("projects/$projectId", $cursor, $limit, $lastTaskId);
 }
