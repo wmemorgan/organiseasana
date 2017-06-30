@@ -5,16 +5,25 @@
 	require_once __DIR__ . '/vendor/autoload.php';
 	require_once 'config.php';
 
-	global $DEBUG;
-	$DEBUG = false;
-	if (isset($_COOKIE["debug"]))
-		$DEBUG = $_COOKIE["debug"];
-	if (isset($_GET["debug"]))
-		$DEBUG = $_GET["debug"];
-	if (isset($_POST["debug"]))
-		$DEBUG = $_POST["debug"];
+	function postDefault($key, $default = null, $get = false, $cookie = false) {
+		$result = $default;
+		if ($cookie && isset($_COOKIE[$key])) {
+			$result = $_COOKIE[$key];
+		}
+		if (isset($_POST[$key])) {
+			$result = $_POST[$key];
+		}
+		if ($get && isset($_GET[$key])) {
+			$result = $_GET[$key];
+		}
 
-	if ($DEBUG) {
+		return $result;
+	}
+
+	global $DEBUG;
+	$DEBUG = postDefault('debug', 0, true, true);
+
+	if ($DEBUG != null) {
 		setcookie("debug", $DEBUG);
 	}
 
@@ -32,14 +41,8 @@
 
 	if (isset($_COOKIE["auth_token"]))
 		$authToken = json_decode($_COOKIE["auth_token"], true);
-	if (isset($_POST["authToken"]))
-		$authToken = $_POST["authToken"];
-	if (isset($_GET["authToken"]))
-		$authToken = $_GET["authToken"];
+	$authToken = postDefault('authToken', $authToken, true);
 
 	global $channel;
-	$channel = null;
-
-	if (isset($_POST["channel"]))
-		$channel = $_POST['channel'];
+	$channel = postDefault('channel', null, true);
 ?>

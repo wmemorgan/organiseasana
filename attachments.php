@@ -6,7 +6,7 @@ function copyAttachments($taskId, $newTaskId) {
 	$result = asanaRequest("tasks/$taskId/attachments");
 	if (isError($result))
 	{
-        pre($result, "Failed to copy attachments from source task!", 'danger');
+        pre($result, "Failed to copy attachments from source task", 'danger');
 		return;
 	}
 
@@ -43,7 +43,7 @@ function copyAttachment($taskId, $newTaskId, $attachmentId, $attachmentName, $wa
 	$result = asanaRequest("attachments/$attachmentId");
 	if (isError($result))
 	{
-        pre($result, "Failed to load attachment details!", 'danger');
+        pre($result, "Failed to load attachment details", 'danger');
 		return;
 	}
 

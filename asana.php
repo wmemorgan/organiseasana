@@ -42,10 +42,6 @@ function asanaRequest($methodPath, $httpMethod = 'GET', $body = null, $cached = 
 	curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $httpMethod);
 	curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
 
-    // SSL cert of Asana is selfmade
-    // curl_setopt ($ch, CURLOPT_SSL_VERIFYHOST, 0);
-    // curl_setopt ($ch, CURLOPT_SSL_VERIFYPEER, 0);
-
 	$jbody = $body;
 	if ($jbody)
 	{
@@ -56,6 +52,7 @@ function asanaRequest($methodPath, $httpMethod = 'GET', $body = null, $cached = 
 		curl_setopt($ch, CURLOPT_POSTFIELDS, $jbody);
 	}
 
+	$error = null;
 	for ($i = 0; $i < 10; $i++) {
 		if ($ratelimit > time()) {
 			if ($wait) {
@@ -87,7 +84,7 @@ function asanaRequest($methodPath, $httpMethod = 'GET', $body = null, $cached = 
 	}
 
 	if ($DEBUG >= 2) {
-		pre(array('request' => $body, 'response' => $result), "$httpMethod " . $url);
+		pre(array('request' => $body, 'response' => $result, 'error' => $error), "$httpMethod " . $url);
 	}
 	return $result;
 }
@@ -274,6 +271,10 @@ function pre($o, $title = false, $style = 'info') {
 
 function isError($result) {
 	return isset($result['errors']) || !isset($result['data']);
+}
+
+function isPaginationError($result) {
+	return isset($result['errors']) && $result['errors']['message'] == "offset: Your pagination token has expired.";
 }
 
 require_once 'workspaces.php';

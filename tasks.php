@@ -184,19 +184,19 @@ function copySubtasks($taskId, $newTaskId, $depth, $workspaceId, $copyTags = tru
 			}
 
 			if (isError($result)) {
-				pre($result, "Failed to create subtask!", 'danger');
+				pre($result, "Failed to create subtask", 'danger');
 				return;
 			}
 
 			$newsubtask = $result["data"];
 			$newSubId = $newsubtask['id'];
             
-			queueSubtask($subtaskId, $newSubId, $workspaceId, $depth, $copyTags, $copyAttachments);
+			queueSubtask($subtask, $newSubId, $workspaceId, $depth, $copyTags, $copyAttachments);
         }
     }
 }
 
-function queueSubtask($subtaskId, $newSubId, $workspaceId, $depth, $copyTags = true, $copyAttachments = true) {
+function queueSubtask($subtask, $newSubId, $workspaceId, $depth, $copyTags = true, $copyAttachments = true) {
 	global $channel;
 	global $authToken;
 	global $DEBUG;
@@ -208,7 +208,8 @@ function queueSubtask($subtaskId, $newSubId, $workspaceId, $depth, $copyTags = t
 		'channel' => $channel,
 		'authToken' => $authToken,
 		'copy' => 'subtask',
-		'subtaskId' => $subtaskId,
+		'subtaskId' => $subtask['id'],
+		'subtask' => $subtask,
 		'newSubId' => $newSubId,
 		'workspaceId' => $workspaceId,
 		'depth' => $depth,
@@ -230,4 +231,69 @@ function copySubtask($subtaskId, $newSubId, $workspaceId, $depth, $copyTags = tr
 	}
 
     copySubtasks($subtaskId, $newSubId, $depth, $workspaceId, $copyTags, $copyAttachments);
+}
+
+function getTasks($parentPath, &$cursor, $limit = 20, $lastTaskId = null) {
+	$baseUrl = "$parentPath/tasks?opt_fields=assignee,assignee_status,completed,due_on,due_at,hearted,name,notes";
+	if ($limit) {
+		$baseUrl .= "&limit=$limit";
+	}
+	$url = $baseUrl;
+	if ($cursor) {
+		$url .= "&offset=$cursor";
+	}
+
+	$result = asanaRequest($url);
+
+	// Handle pagination token expiry
+	if (isPaginationError($result) && $lastTaskId) {
+		progress("Re-querying tasks - pagination token expired");
+		$url = $baseUrl;
+		$found = false;
+		for (;;) {
+			$result = asanaRequest($url);
+			if ($found || isError($result)) {
+				break;
+			}
+
+			// Update cursor
+			if ($result['next_page']) {
+				$cursor = $result['next_page']['offset'];
+			} else {
+				$cursor = false;
+			}
+
+			$tasks = $result['data'];
+			for ($i = 0; $i < count($tasks); $i++) {
+				$task = $tasks[$i];
+				if ($task['id'] == $lastTaskId) {
+					if ($i < count($tasks) - 1) {
+						return array_slice($tasks, $i + 1);
+					} else {
+						$found = true;
+					}
+				}
+			}
+
+			if ($cursor) {
+				$url = $baseUrl . "&offset=" . $cursor;
+			} else {
+				pre(null, "Unable to locate task $lastTaskId while re-paginating $parentPath", 'danger');
+				return;
+			}
+		}
+	}
+	
+	if (isError($result)) {
+        pre($result, "Error loading tasks from $parentPath", 'danger');
+		return;
+	}
+
+	if ($result['next_page']) {
+		$cursor = $result['next_page']['offset'];
+	} else {
+		$cursor = false;
+	}
+
+	return $result['data'];
 }

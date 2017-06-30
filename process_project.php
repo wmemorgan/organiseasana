@@ -11,14 +11,6 @@
 		return;
 	}
 
-	function postDefault($key, $default) {
-		if (isset($_POST[$key])) {
-			return $_POST[$key];
-		} else {
-			return $default;
-		}
-	}
-
 	// Read task parameters
 	$targetWorkspaceId = $_POST['targetWorkspaceId'];
 	$workspaceId = $_POST['workspaceId'];
@@ -27,16 +19,16 @@
 	$teamId = postDefault('teamId', false);
 
 	$projectOffset = postDefault('projectOffset', 0);
-	$targetProject = postDefault('targetProject', null);
+	$targetProject = postDefault('targetProject');
 
-	$sectionPage = postDefault('sectionPage', null);
+	$sectionPage = postDefault('sectionPage');
 	$sectionOffset = postDefault('sectionOffset', 0);
-	$targetSection = postDefault('targetSection', null);
-	$lastSectionId = postDefault('lastSectionId', null);
+	$targetSection = postDefault('targetSection');
+	$lastSectionId = postDefault('lastSectionId');
 
-	$taskPage = postDefault('taskPage', null);
+	$taskPage = postDefault('taskPage');
 	$taskOffset = postDefault('taskOffset', 0);
-	$lastTaskId = postDefault('lastTaskId', null);
+	$lastTaskId = postDefault('lastTaskId');
 
 	$nextSectionPage = null;
 	$nextTaskPage = null;
@@ -166,6 +158,7 @@
 
 		// copy Tasks
 		// TODO check timing and re-queue after 5mins
+		// TODO select batch of tasks and perform creation step in parallel
 		for (; $taskOffset < count($tasks); $taskOffset++)
 		{
 			// Potential calls to the API

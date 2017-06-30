@@ -58,27 +58,5 @@ function createSection($projectId, $name)
 }
 
 function getSectionTasks($sectionId, &$cursor, $limit = 20, $lastTaskId = null) {
-	$url = "sections/$sectionId/tasks?opt_fields=assignee,assignee_status,completed,due_on,due_at,hearted,name,notes";
-	if ($cursor) {
-		$url .= "&offset=$cursor";
-	}
-	if ($limit) {
-		$url .= "&limit=$limit";
-	}
-
-	// TODO handle pagination token expiry
-	$result = asanaRequest($url);
-	if (isError($result))
-	{
-        pre($result, "Error loading tasks from section '$sectionId'", 'danger');
-		return;
-	}
-
-	if ($result['next_page']) {
-		$cursor = $result['next_page']['offset'];
-	} else {
-		$cursor = false;
-	}
-
-	return $result['data'];
+	return getTasks("sections/$sectionId", $cursor, $limit, $lastTaskId);
 }

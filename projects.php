@@ -79,27 +79,5 @@ function createProject($workspaceId, $name, $teamId, $project)
 }
 
 function getProjectTasks($projectId, &$cursor, $limit = 20, $lastTaskId = null) {
-	$url = "projects/$projectId/tasks?opt_fields=assignee,assignee_status,completed,due_on,due_at,hearted,name,notes";
-	if ($cursor) {
-		$url .= "&offset=$cursor";
-	}
-	if ($limit) {
-		$url .= "&limit=$limit";
-	}
-
-	// TODO handle pagination token expiry
-	$result = asanaRequest($url);
-	if (isError($result))
-	{
-        pre($result, "Error loading tasks from project '$projectId'", 'danger');
-		return;
-	}
-
-	if ($result['next_page']) {
-		$cursor = $result['next_page']['offset'];
-	} else {
-		$cursor = false;
-	}
-
-	return $result['data'];
+	return getTasks("projects/$projectId", $cursor, $limit, $lastTaskId);
 }

@@ -5,7 +5,7 @@ function copyHistory($taskId, $newTaskId) {
 	$result = asanaRequest("tasks/$taskId/stories");
 	if (isError($result))
 	{
-        pre($result, "Failed to copy history from source task!", 'danger');
+        pre($result, "Failed to copy history from source task", 'danger');
 		return;
 	}
 
@@ -43,7 +43,7 @@ function copyTags ($taskId, $newTaskId, $newworkspaceId) {
 		$result = asanaRequest("workspaces/$newworkspaceId/tags");
 		if (isError($result))
 		{
-	        pre($result, "Failed to list tags in target workspace!", 'danger');
+	        pre($result, "Failed to list tags in target workspace", 'danger');
 			return;
 		}
 		$existingtags = $result["data"];
@@ -82,7 +82,7 @@ function copyTags ($taskId, $newTaskId, $newworkspaceId) {
                 $result = asanaRequest("tags", "POST", $data);
                 if (isError($result))
 				{
-			        pre($result, "Failed to create tag in target workspace!", 'danger');
+			        pre($result, "Failed to create tag in target workspace", 'danger');
 					return;
 				}
                 $tagId = $result["data"]["id"];
@@ -95,7 +95,7 @@ function copyTags ($taskId, $newTaskId, $newworkspaceId) {
             $result = asanaRequest("tasks/$newTaskId/addTag", "POST", $data);
             if (isError($result))
 			{
-		        pre($result, "Failed to add tag to task!", 'danger');
+		        pre($result, "Failed to add tag to task", 'danger');
 				return;
 			}
         }
