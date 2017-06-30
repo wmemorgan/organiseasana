@@ -225,7 +225,7 @@ if($DEBUG >= 1) {
 					<b>9th March 2017:</b> Bug fix for duplicate tasks being copied, and errors when copying projects with tags to a personal workspace.
 				</li>
 				<li>
-					<b>29th June 2017:</b> Added support for board-style projects.
+					<b>30th June 2017:</b> Added support for board-style projects.
 				</li>
 			</ul>
 			<form id="mainForm" role="form" method="POST">
