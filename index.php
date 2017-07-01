@@ -110,6 +110,7 @@
 			header('Location: ' . $url, true, 303);
 			die();
 		}
+	}
 
 if($DEBUG >= 1) {
 ?>
@@ -139,323 +140,166 @@ if($DEBUG >= 1) {
 	}
 }
 
+include "header.php";
 ?>
-<html>
-	<head>
-		<title>Organise Asana Projects</title>
-		<script src="//code.jquery.com/jquery-1.11.0.min.js"></script>
-		<script src="/jquery.form.js"></script>
 
-		<link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css">
-		<link rel="stylesheet" href="/theme.min.css">
-		<script src="//netdna.bootstrapcdn.com/bootstrap/3.1.1/js/bootstrap.min.js"></script>
-		<link rel="shortcut icon" href="/favicon.ico">
-		<style>
-			form input[type=text] { width: 500px; }
-
-			.bs-callout h4 {
-				margin-top: 0;
-				margin-bottom: 5px;
-			}
-			.bs-callout-info h4 {
-				color: #5bc0de;
-			}
-			.bs-callout-warning h4 {
-				color: #f0ad4e;
-			}
-			.bs-callout-danger h4 {
-				color: #d9534f;
-			}
-
-			.bs-callout {
-				margin: 20px 0;
-				padding: 20px;
-				border-left: 3px solid #eee;
-			}
-			.bs-callout-info {
-				background-color: #f4f8fa;
-				border-color: #5bc0de;
-			}
-			.bs-callout-warning {
-				background-color: #fcf8f2;
-				border-color: #f0ad4e;
-			}
-			.bs-callout-danger {
-				background-color: #fdf7f7;
-				border-color: #d9534f;
-			}
-
-			#log {
-				height: 400px;
-				max-height: 400px;
-				overflow-y: auto;
-			}
-		</style>
-	</head>
-	<body>
-		<div class="container">
-			<div class="page-header">
-				<h1>Organise Asana Projects <small><a href="http://kothar.net/projects/organise-asana.html">Help!</a></small></h1>
-			</div>
-			<p class="lead">
-				Copy <a href="https://asana.com" target="asana">Asana</a> projects from one workspace to another.
-			</p>
-
-			<?php $enabled = true; 
-
-			if (!$enabled) {
-			?>
-			<div class="bs-callout bs-callout-warning">
-				<h4>14th October 2016 - Service Delays</h4>
-				<p>There is currently a large backlog of tasks in the queue (the oldest tasks waiting are about 5 hours old). This may be due to high latency communicating with Asana, or just a lot
-				of people trying or retrying their copy operations.</p>
-				<p>To let the backlog clear I've turned up the rate of task processing and temporarily disabled new jobs - sorry for the inconvenience. I should be able to turn it back on tomorrow.</p>
-			</div>
-			<?php }?>
-
-			<h3>Updates</h3>
-			<ul>
-				<li>
-					<b>21st Feb 2017:</b> Copying large projects now works more reliably.
-				</li>
-				<li>
-					<b>1st March 2017:</b> Bug fix for task description not being copied.
-				</li>
-				<li>
-					<b>9th March 2017:</b> Bug fix for duplicate tasks being copied, and errors when copying projects with tags to a personal workspace.
-				</li>
-				<li>
-					<b>30th June 2017:</b> Added support for board-style projects.
-				</li>
-			</ul>
-			<form id="mainForm" role="form" method="POST">
-				<div class="row">
-					<div class="col-sm-8">
-						<?php if ($authToken) { ?>
-							<a href="/deauth" class="btn btn-danger">Log out</a>
-						<?php } else { ?>
-							<a href="/auth" class="btn btn-primary">Login with Asana</a>
-						<?php } ?>
-					</div>
-				</div>
-
-				<?php 
-
-					if ($channel) {
-						// Output script for listening to channel
-						?>
-						<hr>
-						<div class="bs-callout bs-callout-info">
-							Due to the rate limits imposed by the Asana API,
-							the copy may take some time (approximately 10-15 tasks per minute). Please be patient.
-						</div>
-						<h3 id="progress">Progress: 
-							<input type="hidden" name="channel" value="<?php echo $channel; ?>">
-							<input type="hidden" name="cancel" value="1">
-							<input class="btn btn-danger pull-right" type="submit" value="Cancel" >
-						</h3>
-
-						<div class="well" id="log">
-							Waiting for status...<br>
-						</div>
-						<h3>New projects:</h3>
-						<div id="projects"></div>
-						<hr>
-						<script src="//js.pusher.com/2.2/pusher.min.js"></script>
-						<script>
-							var startTime = new Date().getTime();
-							var pusher = new Pusher("<?php echo $config['pusher_key']; ?>");
-							var channel = pusher.subscribe("<?php echo $channel; ?>");
-							channel.bind('progress', function(data) {
-								var message = data.message;
-								var now = new Date();
-								var elapsed = now.getTime() - startTime;
-								var seconds = elapsed / 1000;
-								var minutes = Math.floor(seconds / 60);
-								seconds = Math.floor(seconds % 60);
-
-								$('#log').append(now + " (" + minutes + "m " + seconds + "s) - ");
-								$('#log').append(message + "<br>");
-								$('#log').scrollTop(10000000);
-							});
-							channel.bind('created', function(project) {
-								$('#projects').append('<a class="btn btn-success btn-xs" target="asana" href="https://app.asana.com/0/' + project['id'] + '">' + project['name'] + '</a> ');
-							});
-							channel.bind('done', function(data) {
-								$('#projects').append("<hr>Done.");
-								pusher.unsubscribe("<?php echo $channel; ?>");
-							});
-							channel.bind('error', function(data) {
-								var message = JSON.stringify(data.api_response, null, 2);
-								$('#log').append('<h2>' + data.error + '</h2><pre class="text-danger">' + message + "</pre><br>");
-								$('#log').scrollTop(10000000);
-							});
-
-							$(function() { 
-								$('#mainForm').ajaxForm(function() { 
-									$('#log').append('<p class="text-danger">Cancelling job...</p><br>');
-									$('#log').scrollTop(10000000);
-								}); 
-							}); 
-						</script>
-						<?php
-					}
-
-					// Display copy options
-					else if ($enabled) {
-						echo '<h2>Browse workspace</h2>';
-						echo '<div class="btn-group">';
-						$workspaces = getWorkspaces();
-						for ($i = count($workspaces) - 1; $i >= 0; $i--)
-						{
-							$workspace = $workspaces[$i];
-							$active = '';
-							if ($workspace['id'] == $workspaceId)
-								$active = ' active';
-							echo '<button class="btn btn-default' . $active . '" type="submit" name="new_workspace" value="' . $workspace['id'] . '">' . $workspace['name'] . '</button>';
-						}
-						echo '</div>';
-
-						if ($workspaceId) {
-							echo '<input type="hidden" name="workspace" value="' . $workspaceId . '"></input>';
-							echo '<input type="hidden" name="projectCursor" value="' . $projectCursor . '"></input>';
-
-							// Select projects
-							echo '<div class="row">';
-							echo '<div class="col-sm-4">';
-							echo '<h2>Copy Projects -></h2>';
-
-							$nextProjectCursor = $projectCursor;
-							$workspaceProjects = getProjects($workspaceId, $nextProjectCursor);
-							$names = function($value) { return $value['name']; };
-
-							echo '<div class="btn-group-vertical" data-toggle="buttons">';
-							$remainingProjects = $projects;
-							for ($i = count($workspaceProjects) - 1; $i >= 0; $i--)
-							{
-								$project = $workspaceProjects[$i];
-								$checked = '';
-								$active = '';
-								$id = $project['id'];
-								if ($projects && in_array($id, $projects)) {
-									$checked = ' checked';
-									$active = ' active';
-									$remainingProjects = array_diff($remainingProjects, [$id]);
-								}
-
-								echo '<label class="btn btn-default' . $active . '"><input type="checkbox" name="projects[]" value="'
-										. $project['id'] . '"' . $checked . '> ' . $project['name'] . '</label>';
-							}
-							echo '</div>';
-
-							$other = count($remainingProjects);
-							if ($other) {
-								echo '<p>' . $other . " other projects selected</p>";
-								foreach($remainingProjects as $project) {
-									echo '<input type="hidden" name="projects[]" value="' . $project . '">';
-								}
-							}
-
-							echo '<div style="padding: 10px;">';
-							if ($projectCursor) {
-								echo '<button class="btn btn-sm btn-primary" type="submit" name="setProjectCursor" value="0">Reset</button> ';
-							}
-							if ($nextProjectCursor) {
-								echo '<button class="btn btn-sm btn-primary" type="submit" name="setProjectCursor" value="' . $nextProjectCursor . '">More</button>';
-							}
-							echo '</div>';
-
-							if ($DEBUG) pre($projects, "Selected projects");
-							if ($DEBUG) pre($workspaceProjects, "Workspace projects");
-							echo '</div>';
-
-							// Select workspace
-							echo '<div class="col-sm-4">';
-							echo '<h2>to Workspace</h2>';
-
-							echo '<div class="btn-group-vertical">';
-							for ($i = count($workspaces) - 1; $i >= 0; $i--)
-							{
-								$workspace = $workspaces[$i];
-
-								$type = ' btn-default';
-								if (isOrganisation($workspace))
-									$type = ' btn-warning';
-
-								$active = '';
-								if ($targetWorkspaceId == $workspace['id'])
-									$active = ' active';
-								echo '<button class="btn' . $type . $active . '" type="submit" name="new_targetWorkspace" value="' . $workspace['id'] . '">' . $workspace['name'] . '</button>';
-							}
-							echo '</div>';
-
-							if ($DEBUG) pre($workspaces, "Target workspaces");
-							echo '</div>';
-
-							// Select team
-							if ($targetWorkspaceId) {
-								echo '<div class="col-sm-4">';
-								echo '<input type="hidden" name="targetWorkspace" value="' . $targetWorkspaceId . '"></input>';
-								$showTeams = isOrganisation($targetWorkspace);
-
-								// Handle Personal Projects
-								if ($showTeams) {
-									echo '<input type="hidden" name="teamCursor" value="' . $teamCursor . '"></input>';
-									$nextTeamCursor = $teamCursor;
-									$teams = getTeams($targetWorkspaceId, $nextTeamCursor);
-									
-									echo '<h2>for team</h2>';
-
-									echo '<div class="btn-group-vertical">';
-									for ($i = count($teams) - 1; $i >= 0; $i--)
-									{
-										$team = $teams[$i];
-
-										echo '<button class="btn btn-success" type="submit" name="team" value="' . $team['id'] . '">' . $team['name'] . '</button>';
-									}
-									echo '</div>';
-
-									echo '<div style="padding: 10px;">';
-									if ($teamCursor) {
-										echo '<button class="btn btn-sm btn-primary" type="submit" name="setTeamCursor" value="0">Reset</button> ';
-									}
-									if ($nextTeamCursor) {
-										echo '<button class="btn btn-sm btn-primary" type="submit" name="setTeamCursor" value="' . $nextTeamCursor . '">More</button>';
-									}
-									echo '</div>';
-
-									if ($DEBUG) pre($teams, "Available teams");
-								}
-								else {
-									// GO button
-
-									echo '<h2>Ready!</h2>';
-									echo '<button class="btn btn-success" type="submit" name="copy" value="go">Go!</button>';
-
-								}
-								echo '</div>';
-							}
-
-							echo '</div>';
-						}
-					}
-
-				} ?>
-			</form>
-
-			<a class="btn btn-primary btn-xs" href=".">Back to start</a>
-
-			<div class="bs-callout bs-callout-info">
-				<h4>Source code</h4>
-				<p>Source code for this tool can be found at <a href="https://bitbucket.org/mikehouston/organiseasana">https://bitbucket.org/mikehouston/organiseasana</a></p>
-				<p>The implementation of the copy operation is based on <a href="https://gist.github.com/AWeg/5814427">https://gist.github.com/AWeg/5814427</a></p>
-				<h4>Privacy</h4>
-				<p>No data is stored on the server - the API key is not retained between calls. No permanent cookies are stored, and your login token is only stored 
-				in a temporary cookie which is cleared when you close your browser.</p>
-				<h4>No Warranty</h4>
-				<p>This tool does not delete any data, and will not modifiy any existing projects (a new copy is made each time)</p>
-				<p>No warranty is made however - use at your own risk</p>
-			</div>
+<form id="mainForm" role="form" method="POST">
+	<div class="row">
+		<div class="col-sm-8">
+			<?php if ($authToken) { ?>
+				<a href="/deauth" class="btn btn-danger">Log out</a>
+			<?php } else { ?>
+				<a href="/auth" class="btn btn-primary">Login with Asana</a>
+			<?php } ?>
 		</div>
-	</body>
-</html>
+	</div>
+
+	<?php 
+
+	if ($channel) {
+		include "progress.php";
+	}
+
+	// Display copy options
+	else if ($enabled && $authToken) {
+		echo '<h2>Browse workspace</h2>';
+		echo '<div class="btn-group">';
+		$workspaces = getWorkspaces();
+		for ($i = count($workspaces) - 1; $i >= 0; $i--)
+		{
+			$workspace = $workspaces[$i];
+			$active = '';
+			if ($workspace['id'] == $workspaceId)
+				$active = ' active';
+			echo '<button class="btn btn-default' . $active . '" type="submit" name="new_workspace" value="' . $workspace['id'] . '">' . $workspace['name'] . '</button>';
+		}
+		echo '</div>';
+
+		if ($workspaceId) {
+			echo '<input type="hidden" name="workspace" value="' . $workspaceId . '"></input>';
+			echo '<input type="hidden" name="projectCursor" value="' . $projectCursor . '"></input>';
+
+			// Select projects
+			echo '<div class="row">';
+			echo '<div class="col-sm-4">';
+			echo '<h2>Copy Projects -></h2>';
+
+			$nextProjectCursor = $projectCursor;
+			$workspaceProjects = getProjects($workspaceId, $nextProjectCursor);
+			$names = function($value) { return $value['name']; };
+
+			echo '<div class="btn-group-vertical" data-toggle="buttons">';
+			$remainingProjects = $projects;
+			for ($i = count($workspaceProjects) - 1; $i >= 0; $i--)
+			{
+				$project = $workspaceProjects[$i];
+				$checked = '';
+				$active = '';
+				$id = $project['id'];
+				if ($projects && in_array($id, $projects)) {
+					$checked = ' checked';
+					$active = ' active';
+					$remainingProjects = array_diff($remainingProjects, [$id]);
+				}
+
+				echo '<label class="btn btn-default' . $active . '"><input type="checkbox" name="projects[]" value="'
+						. $project['id'] . '"' . $checked . '> ' . $project['name'] . '</label>';
+			}
+			echo '</div>';
+
+			$other = count($remainingProjects);
+			if ($other) {
+				echo '<p>' . $other . " other projects selected</p>";
+				foreach($remainingProjects as $project) {
+					echo '<input type="hidden" name="projects[]" value="' . $project . '">';
+				}
+			}
+
+			echo '<div style="padding: 10px;">';
+			if ($projectCursor) {
+				echo '<button class="btn btn-sm btn-primary" type="submit" name="setProjectCursor" value="0">Reset</button> ';
+			}
+			if ($nextProjectCursor) {
+				echo '<button class="btn btn-sm btn-primary" type="submit" name="setProjectCursor" value="' . $nextProjectCursor . '">More</button>';
+			}
+			echo '</div>';
+
+			if ($DEBUG) pre($projects, "Selected projects");
+			if ($DEBUG) pre($workspaceProjects, "Workspace projects");
+			echo '</div>';
+
+			// Select workspace
+			echo '<div class="col-sm-4">';
+			echo '<h2>to Workspace</h2>';
+
+			echo '<div class="btn-group-vertical">';
+			for ($i = count($workspaces) - 1; $i >= 0; $i--)
+			{
+				$workspace = $workspaces[$i];
+
+				$type = ' btn-default';
+				if (isOrganisation($workspace))
+					$type = ' btn-warning';
+
+				$active = '';
+				if ($targetWorkspaceId == $workspace['id'])
+					$active = ' active';
+				echo '<button class="btn' . $type . $active . '" type="submit" name="new_targetWorkspace" value="' . $workspace['id'] . '">' . $workspace['name'] . '</button>';
+			}
+			echo '</div>';
+
+			if ($DEBUG) pre($workspaces, "Target workspaces");
+			echo '</div>';
+
+			// Select team
+			if ($targetWorkspaceId) {
+				echo '<div class="col-sm-4">';
+				echo '<input type="hidden" name="targetWorkspace" value="' . $targetWorkspaceId . '"></input>';
+				$showTeams = isOrganisation($targetWorkspace);
+
+				// Handle Personal Projects
+				if ($showTeams) {
+					echo '<input type="hidden" name="teamCursor" value="' . $teamCursor . '"></input>';
+					$nextTeamCursor = $teamCursor;
+					$teams = getTeams($targetWorkspaceId, $nextTeamCursor);
+					
+					echo '<h2>for team</h2>';
+
+					echo '<div class="btn-group-vertical">';
+					for ($i = count($teams) - 1; $i >= 0; $i--)
+					{
+						$team = $teams[$i];
+
+						echo '<button class="btn btn-success" type="submit" name="team" value="' . $team['id'] . '">' . $team['name'] . '</button>';
+					}
+					echo '</div>';
+
+					echo '<div style="padding: 10px;">';
+					if ($teamCursor) {
+						echo '<button class="btn btn-sm btn-primary" type="submit" name="setTeamCursor" value="0">Reset</button> ';
+					}
+					if ($nextTeamCursor) {
+						echo '<button class="btn btn-sm btn-primary" type="submit" name="setTeamCursor" value="' . $nextTeamCursor . '">More</button>';
+					}
+					echo '</div>';
+
+					if ($DEBUG) pre($teams, "Available teams");
+				}
+				else {
+					// GO button
+
+					echo '<h2>Ready!</h2>';
+					echo '<button class="btn btn-success" type="submit" name="copy" value="go">Go!</button>';
+
+				}
+				echo '</div>';
+			}
+
+			echo '</div>';
+		}
+
+	} ?>
+</form>
+
+<?php
+include "footer.php";
