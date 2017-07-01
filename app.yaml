@@ -35,3 +35,9 @@ handlers:
 - url: /\.well-known/acme-challenge/(.*)$
   static_files: acme/\1
   upload: acme/.*
+
+automatic_scaling:
+   max_concurrent_requests: 80
+   min_pending_latency: 100ms
+   max_pending_latency: automatic
+   max_idle_instances: 2
