@@ -1,26 +1,6 @@
 <?php
 
-function queueTasks($fromProjectId, $toProjectId, $offset = 0) {
-	global $channel;
-	global $authToken;
-	global $DEBUG;
-
-	// Start task
-	require_once("google/appengine/api/taskqueue/PushTask.php");
-
-	$params = [
-		'channel' => $channel,
-		'authToken' => $authToken,
-		'fromProjectId' => $fromProjectId,
-		'toProjectId' => $toProjectId,
-		'offset' => $offset,
-		'debug' => $DEBUG
-	];
-	$job = new \google\appengine\api\taskqueue\PushTask('/process/tasks', $params);
-	$task_name = $job->add();
-}
-
-function queueTask($workspaceId, $taskId, $newTask, $copyTags = true, $copyAttachments = true) {
+function queueTask($targetWorkspaceId, $taskId, $newTask, $copyTags = true, $copyAttachments = true) {
 	global $channel;
 	global $authToken;
 	global $DEBUG;
@@ -32,7 +12,7 @@ function queueTask($workspaceId, $taskId, $newTask, $copyTags = true, $copyAttac
 		'channel' => $channel,
 		'authToken' => $authToken,
 		'copy' => 'task',
-		'workspaceId' => $workspaceId,
+		'workspaceId' => $targetWorkspaceId,
 		'taskId' => $taskId,
 		'newTask' => $newTask,
 		'debug' => $DEBUG,
@@ -42,19 +22,16 @@ function queueTask($workspaceId, $taskId, $newTask, $copyTags = true, $copyAttac
 	$task_name = $job->add();
 }
 
-function copyTask($workspaceId, $taskId, $newTask, $copyTags = true, $copyAttachments = true) {
+function copyTask($targetWorkspaceId, $taskId, $newTask, $copyTags = true, $copyAttachments = true) {
 
     $newTaskId=$newTask['id'];
 	copyHistory($taskId, $newTaskId);
-	if ($copyTags) {
-    	copyTags($taskId, $newTaskId, $workspaceId);
-	}
 	if ($copyAttachments) {
-		copyAttachments($taskId, $newTaskId, $workspaceId);
+		copyAttachments($taskId, $newTaskId, $targetWorkspaceId);
 	}
 
     $depth = 0;
-    copySubtasks($taskId, $newTaskId, $depth, $workspaceId, $copyTags, $copyAttachments);
+    copySubtasks($taskId, $newTaskId, $depth, $targetWorkspaceId, $copyTags, $copyAttachments);
 }
 
 function cleanTask($task) {
@@ -139,47 +116,48 @@ function createTask($workspaceId, $task)
 	return $result;
 }
 
-function copySubtasks($taskId, $newTaskId, $depth, $workspaceId, $copyTags = true, $copyAttachments = true) {
+function copySubtasks($taskId, $newTaskId, $depth, $targetWorkspaceId, $copyTags = true, $copyAttachments = true) {
     $depth++;
     if ($depth > 10) {
         return FALSE;
     }
 
     // GET subtasks of task
-    $result = asanaRequest("tasks/$taskId/subtasks");
+    $result = asanaRequest("tasks/$taskId/subtasks?opt_expand=assignee,assignee_status,completed,due_on,due_at,hearted,name,notes,memberships,tags");
     if (isError($result)) {
 		pre($result, "Error getting subtasks", 'danger');
 	}
     $subtasks = $result["data"];
 
-
-    if ($subtasks){     // does subtask exist?
+	// does subtask exist?
+    if ($subtasks){
         for ($i= count($subtasks) - 1; $i >= 0; $i--) {
 
             $subtask = $subtasks[$i];
-
             $subtaskId = $subtask['id'];
 
-		    // get data for subtask
 		    // TODO external field
-		    $result = asanaRequest("tasks/$subtaskId?opt_fields=assignee,assignee_status,completed,due_on,due_at,hearted,name,notes,memberships");
-		    $task = $result['data'];
-		    unset($task["id"]);
+		    unset($subtask["id"]);
 		    
-			p(str_repeat("&nbsp;", $depth) . "Creating subtask: " . $task['name']);
+			p(str_repeat("&nbsp;", $depth) . "Creating subtask: " . $subtask['name']);
 		    
-		    if (isset($task["assignee"]))
-		        $task["assignee"] = $task["assignee"]["id"];
+		    if (isset($subtask["assignee"]))
+		        $subtask["assignee"] = $subtask["assignee"]["id"];
+			if ($copyTags && $subtask['tags']) {
+				$subtask['tags'] = getTargetTags($subtask, $targetWorkspaceId);
+			} else {
+				unset($subtask['tags']);
+			}
 
 		    // create Subtask
-		    $data = array('data' => cleanTask($task));
+		    $data = array('data' => cleanTask($subtask));
 		    $result = asanaRequest("tasks/$newTaskId/subtasks", 'POST', $data);
 		    
 		    // Try to remove assignee if an error is returned
 			// TODO check assignee exists before submitting the request
-			if (isError($result) && isset($task['assignee'])) {
-				unset($task['assignee']);
-				$data = array('data' => cleanTask($task));
+			if (isError($result) && isset($subtask['assignee'])) {
+				unset($subtask['assignee']);
+				$data = array('data' => cleanTask($subtask));
 				$result = asanaRequest("tasks/$newTaskId/subtasks", 'POST', $data);
 			}
 
@@ -191,12 +169,12 @@ function copySubtasks($taskId, $newTaskId, $depth, $workspaceId, $copyTags = tru
 			$newsubtask = $result["data"];
 			$newSubId = $newsubtask['id'];
             
-			queueSubtask($subtask, $newSubId, $workspaceId, $depth, $copyTags, $copyAttachments);
+			queueSubtask($subtask, $subtaskId, $newSubId, $targetWorkspaceId, $depth, $copyTags, $copyAttachments);
         }
     }
 }
 
-function queueSubtask($subtask, $newSubId, $workspaceId, $depth, $copyTags = true, $copyAttachments = true) {
+function queueSubtask($subtask, $subtaskId, $newSubId, $targetWorkspaceId, $depth, $copyTags = true, $copyAttachments = true) {
 	global $channel;
 	global $authToken;
 	global $DEBUG;
@@ -208,10 +186,10 @@ function queueSubtask($subtask, $newSubId, $workspaceId, $depth, $copyTags = tru
 		'channel' => $channel,
 		'authToken' => $authToken,
 		'copy' => 'subtask',
-		'subtaskId' => $subtask['id'],
+		'subtaskId' => $subtaskId,
 		'subtask' => $subtask,
 		'newSubId' => $newSubId,
-		'workspaceId' => $workspaceId,
+		'workspaceId' => $targetWorkspaceId,
 		'depth' => $depth,
 		'copyTags' => $copyTags,
 		'debug' => $DEBUG
@@ -220,21 +198,18 @@ function queueSubtask($subtask, $newSubId, $workspaceId, $depth, $copyTags = tru
 	$task_name = $job->add();
 }
 
-function copySubtask($subtaskId, $newSubId, $workspaceId, $depth, $copyTags = true, $copyAttachments = true) {
+function copySubtask($subtaskId, $newSubId, $targetWorkspaceId, $depth, $copyTags = true, $copyAttachments = true) {
 
     copyHistory($subtaskId, $newSubId);
-	if ($copyTags) {
-		copyTags($subtaskId, $newSubId, $workspaceId);
-	}
 	if ($copyAttachments) {
-		copyAttachments($subtaskId, $newSubId, $workspaceId);
+		copyAttachments($subtaskId, $newSubId, $targetWorkspaceId);
 	}
 
-    copySubtasks($subtaskId, $newSubId, $depth, $workspaceId, $copyTags, $copyAttachments);
+    copySubtasks($subtaskId, $newSubId, $depth, $targetWorkspaceId, $copyTags, $copyAttachments);
 }
 
 function getTasks($parentPath, &$cursor, $limit = 20, $lastTaskId = null) {
-	$baseUrl = "$parentPath/tasks?opt_fields=assignee,assignee_status,completed,due_on,due_at,hearted,name,notes";
+	$baseUrl = "$parentPath/tasks?opt_expand=assignee,assignee_status,completed,due_on,due_at,hearted,name,notes,memberships,tags";
 	if ($limit) {
 		$baseUrl .= "&limit=$limit";
 	}

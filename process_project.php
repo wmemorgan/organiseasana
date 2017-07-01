@@ -35,14 +35,12 @@
 
 	// Get some info
 	$team = null;
-	$copyTags = false;
 	$targetWorkspace = getWorkspace($targetWorkspaceId);
-	if ($targetWorkspaceId && $projects) {
-		if (isOrganisation($targetWorkspace)) {
-			$copyTags = true;
-			if ($teamId) {
-				$team = getTeam($targetWorkspaceId, $teamId);
-			}
+	$copyTags = !isPersonalProjects($targetWorkspace);
+
+	if (isOrganisation($targetWorkspace)) {
+		if ($teamId) {
+			$team = getTeam($targetWorkspaceId, $teamId);
 		}
 	}
 
@@ -165,16 +163,10 @@
 			// createTask: 2
 			// addToProject: 1
 			// copyHistory: 2
-			// copyTags: 1 + 3N tags
 			// copySubtasks: 1 + 2N subtasks + descendants
 
-			// Allow for minimum (7), rest will be deferred if not enough allowance
-			$pending = 0;
-			if ($copyTags) {
-				$pending = incrementRequests(7);
-			} else {
-				$pending = incrementRequests(6);
-			}
+			// Allow for minimum (6), rest will be deferred if not enough allowance
+			$pending = incrementRequests(6);
 			$rateLimit = getRateLimit();
 
 			if (isCancelled($channel)) {
@@ -202,6 +194,11 @@
 				{
 					unset($newTask[$key]);
 				}
+			}
+			if ($copyTags && $newTask['tags']) {
+				$newTask['tags'] = getTargetTags($newTask, $targetWorkspaceId);
+			} else {
+				unset($newTask['tags']);
 			}
 
 			progress("Creating task '" . $newTask['name'] . "'");

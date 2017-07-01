@@ -3,6 +3,10 @@
 function copyHistory($taskId, $newTaskId) {
 
 	$result = asanaRequest("tasks/$taskId/stories");
+	if (isUnrecognisedTaskError($result)) {
+		progress("Unable to copy history for task $taskId: ID not recognised");
+		return;
+	}
 	if (isError($result))
 	{
         pre($result, "Failed to copy history from source task", 'danger');
@@ -32,72 +36,58 @@ function copyHistory($taskId, $newTaskId) {
 	}
 }
 
-function copyTags ($taskId, $newTaskId, $newworkspaceId) {
+function getTargetTags($task, $targetWorkspaceId) {
 
-    // GET Tags
-    $result = asanaRequest("tasks/$taskId/tags");
+    $tags = $task['tags'];
+	$targetTags = array();
 
-    if (!isError($result))
-    { 	// are there any tags?
-        $tags = $result["data"];
-		$result = asanaRequest("workspaces/$newworkspaceId/tags");
-		if (isError($result))
-		{
-	        pre($result, "Failed to list tags in target workspace", 'danger');
-			return;
+	// Do the tags exist in the target workspace?
+	$tagKey = "tags:$targetWorkspaceId";
+	$existingTags = getCached($tagKey);
+	$tagsModified = false;
+	if (!$existingTags) {
+		$existingTags = getAllTags($targetWorkspaceId);
+		$tagsModified = true;
+	}
+	foreach ($tags as $tag) {
+
+		$tagName = $tag["name"];
+
+		// does tag exist?
+		$tagId = false;
+		foreach ($existingTags as $existingTag) {
+			if ($existingTag['name'] === $tagName) {
+				$tagId = $existingTag["id"];
+			}
 		}
-		$existingtags = $result["data"];
-		
-        for ($i = count ($tags) - 1; $i >= 0; $i--) {
 
-            $tag = $tags[$i];
-            $tagName = $tag["name"];
+		if (!$tagId) {
+			progress("Creating tag '$tagName' in target workspace");
+			unset($tag['created_at']);
+			unset($tag['followers']);
+			$tag['workspace'] = $targetWorkspaceId;
 
-            // does tag exist?
-            $tagkey = "$newworkspaceId:tag:$tagName";
-            $existingtag = getCached($tagkey);
-            $tagisset = $existingtag != null;
-            if (!$tagisset) {
-	            for($j = count($existingtags) - 1; $j >= 0; $j--) {
-	                $existingtag = $existingtags[$j];
-
-	                if (strcmp($tagName,$existingtag["name"]) == 0) {
-	                    $tagisset = true;
-	                    $tagId = $existingtag["id"];
-	                    break;
-	                }
-	            }
-	        } else {
-	        	$tagId = $existingtag["id"];
-	        }
-
-            if (!$tagisset) {
-
-                p("tag does not exist in workspace");
-                unset($tag['created_at']);
-                unset($tag['followers']);
-                $tag['workspace'] = $newworkspaceId;
-
-                $data = array('data' => $tag);
-                $result = asanaRequest("tags", "POST", $data);
-                if (isError($result))
-				{
-			        pre($result, "Failed to create tag in target workspace", 'danger');
-					return;
-				}
-                $tagId = $result["data"]["id"];
-
-				// Cache new tag
-				cache($tagkey, $result["data"]);
-            }
-
-            $data = array("data" => array("tag" => $tagId));
-            $result = asanaRequest("tasks/$newTaskId/addTag", "POST", $data);
-            if (isError($result))
+			$data = array('data' => $tag);
+			$result = asanaRequest("tags", "POST", $data);
+			if (isError($result))
 			{
-		        pre($result, "Failed to add tag to task", 'danger');
+				pre($result, "Failed to create tag in target workspace", 'danger');
 				return;
 			}
-        }
-    }
+			$newTag = $result["data"];
+			$tagId = $newTag["id"];
+			$existingTags[] = $newTag;
+			$tagsModified = true;
+		}
+
+		$targetTags[] = $tagId;
+	}
+
+	// Cache updated tags
+	if (count($existingTags) && $tagsModified) {
+		cache($tagkey, $existingTags);
+	}
+
+	// Return tag IDs for task creation
+	return $targetTags;
 }

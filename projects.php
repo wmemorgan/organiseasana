@@ -27,7 +27,7 @@ function getProjects($workspaceId, &$cursor, $limit = 10) {
 	$result = asanaRequest($path);
 	if (isError($result))
 	{
-        pre($result, "Error Loading Projects!", 'danger');
+        pre($result, "Error loading projects", 'danger');
 		return;
 	}
 
@@ -44,7 +44,7 @@ function getProject($projectId) {
 	$result = asanaRequest("projects/$projectId");
 	if (isError($result))
 	{
-        pre($result, "Error Loading Project!", 'danger');
+        pre($result, "Error loading project", 'danger');
 		return;
 	}
 
@@ -72,7 +72,7 @@ function createProject($workspaceId, $name, $teamId, $project)
 		return $newProject;
 	}
 	else {
-		pre($result, "Error creating project!", 'danger');
+		pre($result, "Error creating project", 'danger');
 	}
 
 	return $result;

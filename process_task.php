@@ -10,12 +10,12 @@
 		return;
 	}
 
-	$workspaceId = $_POST['workspaceId'];
+	$targetWorkspaceId = $_POST['workspaceId'];
 	$taskId = $_POST['taskId'];
 	$newTask = $_POST['newTask'];
 	$copyTags = $_POST['copyTags'];
 
 	progress("Copy content for '" . $newTask['name'] . "'");
-	copyTask($workspaceId, $taskId, $newTask, $copyTags);
+	copyTask($targetWorkspaceId, $taskId, $newTask, $copyTags);
 
 ?>

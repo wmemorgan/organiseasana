@@ -10,6 +10,10 @@ function isOrganisation($workspace) {
 	return $org;
 }
 
+function isPersonalProjects($workspace) {
+	return $workspace['name'] === 'Personal Projects';
+}
+
 function getWorkspaces() {
 	$result = asanaRequest("workspaces");
 	if (isError($result))

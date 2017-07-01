@@ -274,12 +274,21 @@ function isError($result) {
 }
 
 function isPaginationError($result) {
-	return isset($result['errors']) && $result['errors']['message'] == "offset: Your pagination token has expired.";
+	return isset($result['errors']) && $result['errors']['message'] === "offset: Your pagination token has expired.";
+}
+
+function hasPrefix($string, $prefix) {
+	return substr($string, 0, strlen($prefix)) === $prefix;
+}
+
+function isUnrecognisedTaskError($result) {
+	return isset($result['errors']) && hasPrefix($result['errors']['message'], "task: Not a recognized ID:");
 }
 
 require_once 'workspaces.php';
 require_once 'projects.php';
 require_once 'sections.php';
 require_once 'tasks.php';
+require_once 'tags.php';
 require_once 'taskdetails.php';
 require_once 'attachments.php';
