@@ -3,6 +3,17 @@
     Due to the rate limits imposed by the Asana API,
     the copy may take some time (approximately 10-15 tasks per minute). Please be patient.
 </div>
+<div class="bs-callout bs-callout-warning">
+    <h2>Tuesday 11th July 2017</h2>
+    <p>
+        The servers are currently processing a large number of requests, and have used up the quota of push
+        notifications used to provide job feedback. The jobs are still being processed, but unfortunately you won't
+        see any notifications here for the time being.
+    </p>
+    <p>
+        I'm working on a change to reduce the number of notifications needed.
+    </p>
+</div>
 <h3 id="progress">Progress: 
     <input type="hidden" name="channel" value="<?php echo $channel; ?>">
     <input type="hidden" name="cancel" value="1">
