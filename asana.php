@@ -230,23 +230,36 @@ function notifyCreated($project) {
 	}
 }
 
+$messages = array();
+
 function progress($text) {
+	global $messages;
+
+	$messages[] = $text;
+	error_log($text);
+}
+
+function flushProgress() {
+	global $messages;
 	global $pusher;
 	global $channel;
-	if ($pusher) {
-		$body = array('message' => $text);
-		$pusher->trigger($channel, 'progress', $body);
-	} else {
-		print "<p>" . $text . "</p>\n";
-		flush();
+	if (count($messages) == 0) {
+		return;
 	}
+
+	$body = array('messages' => $messages);
+	$pusher->trigger($channel, 'progress', $body);
+
+	$messages = array();
 }
 
 function error($body, $title, $style) {
 	global $pusher;
 	global $channel;
+	flushProgress();
 	if ($pusher) {
 		$error = array ('error' => $title, 'api_response' => $body);
+		error_log($error);
 		$pusher->trigger($channel, 'error', $error);
 		if (strcmp($style, 'danger') == 0)
 			throw new Exception(json_encode($error, JSON_PRETTY_PRINT));

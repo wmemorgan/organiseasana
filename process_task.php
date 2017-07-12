@@ -17,5 +17,5 @@
 
 	progress("Copy content for '" . $newTask['name'] . "'");
 	copyTask($targetWorkspaceId, $taskId, $newTask, $copyTags);
-
+	flushProgress();
 ?>

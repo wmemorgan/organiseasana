@@ -3,7 +3,7 @@
     Due to the rate limits imposed by the Asana API,
     the copy may take some time (approximately 10-15 tasks per minute). Please be patient.
 </div>
-<div class="bs-callout bs-callout-warning">
+<!--<div class="bs-callout bs-callout-warning">
     <h2>Tuesday 11th July 2017</h2>
     <p>
         The servers are currently processing a large number of requests, and have used up the quota of push
@@ -13,7 +13,7 @@
     <p>
         I'm working on a change to reduce the number of notifications needed.
     </p>
-</div>
+</div>-->
 <h3 id="progress">Progress: 
     <input type="hidden" name="channel" value="<?php echo $channel; ?>">
     <input type="hidden" name="cancel" value="1">
@@ -32,15 +32,18 @@
     var pusher = new Pusher("<?php echo $config['pusher_key']; ?>");
     var channel = pusher.subscribe("<?php echo $channel; ?>");
     channel.bind('progress', function(data) {
-        var message = data.message;
         var now = new Date();
         var elapsed = now.getTime() - startTime;
         var seconds = elapsed / 1000;
         var minutes = Math.floor(seconds / 60);
         seconds = Math.floor(seconds % 60);
 
-        $('#log').append(now + " (" + minutes + "m " + seconds + "s) - ");
-        $('#log').append(message + "<br>");
+        var i;
+        for(i = 0; i < data.messages.length; i++) {
+            var message = data.messages[i];
+            $('#log').append(now + " (" + minutes + "m " + seconds + "s) - ");
+            $('#log').append(message + "<br>");
+        }
         $('#log').scrollTop(10000000);
     });
     channel.bind('created', function(project) {

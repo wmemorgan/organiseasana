@@ -17,5 +17,5 @@
 
 	progress("Copying attachment $attachmentName ($attachmentId)");
 	copyAttachment($taskId, $newTaskId, $attachmentId, $attachmentName);
-
+	flushProgress();
 ?>

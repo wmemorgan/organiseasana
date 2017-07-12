@@ -23,5 +23,5 @@
 		progress('Copying subtask content for ' . $subtaskId);
 	}
 	copySubtask($subtaskId, $newSubId, $targetWorkspaceId, $depth, $copyTags);
-
+	flushProgress();
 ?>

@@ -11,5 +11,5 @@
 	}
 
 	progress('Copy complete!');
-
+	flushProgress();
 ?>
