@@ -106,7 +106,8 @@ function copyAttachment($taskId, $newTaskId, $attachmentId, $attachmentName, $wa
 
 	$attachmentData = false;
 	if ($attachmentLength < 0) {
-    	p("Unable to determine attachment size for $fileName, forced to download first.");
+		if ($DEBUG >= 1)
+			p("Unable to determine attachment size for $fileName, forced to download first.");
 
 		// Maximum attachment size is 100 MiB
 		$maxBuffer = 10 * 1024 * 1024;
@@ -132,7 +133,8 @@ function copyAttachment($taskId, $newTaskId, $attachmentId, $attachmentName, $wa
 			// Discard data and just work out the size of the attachment
 			$attachmentData = false;
 
-    		p("Attachment $fileName > 10 Mib, requires full re-download");
+			if ($DEBUG >= 1)
+				p("Attachment $fileName > 10 Mib, requires full re-download");
 			while ($attachmentLength < $maxSize) {
 				$chunk = fread($content, 1024 * 1024);
 				if (!$chunk || strlen($chunk) == 0) {
@@ -161,7 +163,8 @@ function copyAttachment($taskId, $newTaskId, $attachmentId, $attachmentName, $wa
 
 	$contentLength = strlen($attachmentHeader) + $attachmentLength + strlen($attachmentFooter);
 	$headers[] = "Content-Length: $contentLength";
-    p("Attachment size: $attachmentLength bytes\n");
+	if ($DEBUG >= 1)
+		p("Attachment size: $attachmentLength bytes\n");
 	
 	$ch = curl_init($url);
 	$options = array(
@@ -202,7 +205,8 @@ function copyAttachment($taskId, $newTaskId, $attachmentId, $attachmentName, $wa
 	}
 
 	curl_close($ch);
-	p("Finished uploading $fileName");
+	if ($DEBUG >= 1)
+		p("Finished uploading $fileName");
 }
 
 // Thanks to http://zingaburga.com/2011/02/streaming-post-data-through-php-curl-using-curlopt_readfunction/
