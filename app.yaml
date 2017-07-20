@@ -24,6 +24,7 @@ handlers:
   script: deauth.php
 - url: /
   script: index.php
+
 # All URLs ending in .gif .png or .jpg are treated as paths to static files in
 # the static/ directory. The URL pattern is a regexp, with a grouping that is
 # inserted into the path to the file.
@@ -35,6 +36,10 @@ handlers:
 - url: /\.well-known/acme-challenge/(.*)$
   static_files: acme/\1
   upload: acme/.*
+
+# Test scripts
+- url: /test/fields
+  script: test_fields.php
 
 automatic_scaling:
    max_concurrent_requests: 80
