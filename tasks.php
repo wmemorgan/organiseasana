@@ -138,6 +138,7 @@ function copySubtasks($taskId, $newTaskId, $depth, $targetWorkspaceId, $copyTags
 
 		    // TODO external field
 		    unset($subtask["id"]);
+			unset($subtask["memberships"]);
 		    
 			p(str_repeat("&nbsp;", $depth) . "Creating subtask: " . $subtask['name']);
 		    
