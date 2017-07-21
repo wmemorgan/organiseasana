@@ -38,7 +38,7 @@ handlers:
   upload: acme/.*
 
 # Test scripts
-- url: /test/fields
+- url: /debug/fields
   script: test_fields.php
 
 automatic_scaling:

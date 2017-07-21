@@ -5,8 +5,7 @@
  * https://gist.github.com/AWeg/5814427
  */
 
-function asanaRequest($methodPath, $httpMethod = 'GET', $body = null, $cached = true, $wait = true)
-{
+function asanaRequest($methodPath, $httpMethod = 'GET', $body = null, $cached = true, $wait = true) {
     global $authToken;
     global $DEBUG;
     global $ratelimit;
@@ -88,8 +87,7 @@ function asanaRequest($methodPath, $httpMethod = 'GET', $body = null, $cached = 
     return $result;
 }
 
-function parseAsanaResponse($data)
-{
+function parseAsanaResponse($data) {
     $result = null;
 
     // See http://stackoverflow.com/a/27909889/37416
@@ -113,8 +111,7 @@ function parseAsanaResponse($data)
     return $result;
 }
 
-function getAccessToken()
-{
+function getAccessToken() {
     global $authToken;
     $access_token = $authToken['access_token'];
     // Check for expiry
@@ -149,8 +146,7 @@ function getAccessToken()
     return $access_token;
 }
 
-function cache($key, $result)
-{
+function cache($key, $result) {
     if ($key) {
         try {
             getMemcache()->set($key, $result, false, 120);
@@ -159,8 +155,7 @@ function cache($key, $result)
     }
 }
 
-function getCached($key)
-{
+function getCached($key) {
     try {
         $data = getMemcache()->get($key);
         return $data;
@@ -169,8 +164,7 @@ function getCached($key)
     return null;
 }
 
-function getMemcache()
-{
+function getMemcache() {
     global $memcache;
     if (!$memcache) {
         $memcache = new Memcache;
@@ -178,32 +172,28 @@ function getMemcache()
     return $memcache;
 }
 
-function isCancelled($channel)
-{
+function isCancelled($channel) {
     global $authToken;
     $key = sha1($authToken['refresh_token']) . ":$channel:cancelled";
     $cancelled = getMemcache()->get($key);
     return $cancelled;
 }
 
-function cancel($channel)
-{
+function cancel($channel) {
     global $authToken;
     $key = sha1($authToken['refresh_token']) . ":$channel:cancelled";
     $cancelled = getMemcache()->set($key, true);
     return $cancelled;
 }
 
-function getPendingRequests()
-{
+function getPendingRequests() {
     global $authToken;
     $key = sha1($authToken['refresh_token']) . ":issuedRequests:" . floor(time()/60);
     $pending = getMemcache()->get($key);
     return $pending;
 }
 
-function incrementRequests($value = 1)
-{
+function incrementRequests($value = 1) {
     global $authToken;
     $key = sha1($authToken['refresh_token']) . ":issuedRequests:" . floor(time()/60);
     $pending = getMemcache()->increment($key, $value);
@@ -214,24 +204,21 @@ function incrementRequests($value = 1)
     return $pending;
 }
 
-function getRateLimit()
-{
+function getRateLimit() {
     global $authToken;
     $key = sha1($authToken['refresh_token']) . ":ratelimit";
     $ratelimit = getMemcache()->get($key);
     return $ratelimit;
 }
 
-function setRateLimit($ratelimit)
-{
+function setRateLimit($ratelimit) {
     global $authToken;
     $key = sha1($authToken['refresh_token']) . ":ratelimit";
     getMemcache()->set($key, $ratelimit);
     return $ratelimit;
 }
 
-function notifyCreated($project)
-{
+function notifyCreated($project) {
     global $pusher;
     global $channel;
     if ($pusher) {
@@ -241,16 +228,14 @@ function notifyCreated($project)
 
 $messages = array();
 
-function progress($text)
-{
+function progress($text) {
     global $messages;
 
     $messages[] = $text;
     error_log($text);
 }
 
-function flushProgress()
-{
+function flushProgress() {
     global $messages;
     global $pusher;
     global $channel;
@@ -264,8 +249,7 @@ function flushProgress()
     $messages = array();
 }
 
-function error($body, $title, $style)
-{
+function error($body, $title, $style) {
     global $pusher;
     global $channel;
     flushProgress();
@@ -281,40 +265,37 @@ function error($body, $title, $style)
         if ($title) {
             print "<h4>$title</h4>";
         }
-        print "<pre>";
-        print(json_encode($body, JSON_PRETTY_PRINT));
-        print "</pre></div>\n";
+        if ($body) {
+            print "<pre>";
+            print(json_encode($body, JSON_PRETTY_PRINT));
+            print "</pre>";
+        }
+        print "</div>\n";
         flush();
     }
 }
 
-function p($text)
-{
+function p($text) {
     progress($text);
 }
 
-function pre($o, $title = false, $style = 'info')
-{
+function pre($o, $title = false, $style = 'info') {
     error($o, $title, $style);
 }
 
-function isError($result)
-{
+function isError($result) {
     return isset($result['errors']) || !isset($result['data']);
 }
 
-function isPaginationError($result)
-{
+function isPaginationError($result) {
     return isset($result['errors']) && $result['errors']['message'] === "offset: Your pagination token has expired.";
 }
 
-function hasPrefix($string, $prefix)
-{
+function hasPrefix($string, $prefix) {
     return substr($string, 0, strlen($prefix)) === $prefix;
 }
 
-function isUnrecognisedTaskError($result)
-{
+function isUnrecognisedTaskError($result) {
     return isset($result['errors']) && hasPrefix($result['errors']['message'], "task: Not a recognized ID:");
 }
 
