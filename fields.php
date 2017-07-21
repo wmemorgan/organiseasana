@@ -201,7 +201,6 @@ function addProjectFields($sourceProject, $targetProjectId, $customFieldMapping)
 
 function remapCustomFields(&$task, $customFieldMapping) {
     if (!$customFieldMapping) {
-        error_log("No custom field mapping");
         unset($task["custom_fields"]);
         return;
     }
@@ -210,17 +209,14 @@ function remapCustomFields(&$task, $customFieldMapping) {
     foreach ($task["custom_fields"] as $field) {
         $targetFieldMapping = $customFieldMapping[$field["id"]];
         if (!$targetFieldMapping) {
-            error_log("No mapping for field ".print_r($field, true));
             continue;
         }
-        error_log("Mapping field " . $field["name"] . " to target field " . $targetFieldMapping["id"]);
 
         $targetFieldId = $targetFieldMapping["id"];
         if ($field["type"] == "enum" && $field["enum_value"]) {
             $targetValue = $targetFieldMapping["options"][$field["enum_value"]["id"]];
             if ($targetValue) {
                 $newFields[$targetFieldId] = $targetValue;
-                error_log("Mapping value " . $field["enum_value"]["id"] . " to target value " . $targetValue);
             }
         } elseif ($field["type"] == "number") {
             $newFields[$targetFieldId] = $field["number_value"];
@@ -230,7 +226,6 @@ function remapCustomFields(&$task, $customFieldMapping) {
     }
 
     $task["custom_fields"] = $newFields;
-    error_log("Custom fields: ". print_r($task["custom_fields"], true));
     return $newFields;
 }
 

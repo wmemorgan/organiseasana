@@ -214,6 +214,10 @@
                 } else {
                     addTaskToProject($newTask, $targetProjectId);
                 }
+
+                if ($customFieldMapping && $newTask["custom_fields"]) {
+                    setCustomFields($newTask["id"], $newTask["custom_fields"]);
+                }
                 
                 queueTask($targetWorkspaceId, $taskId, $newTask, $copyTags, $copyAttachments, $customFieldMapping);
             }

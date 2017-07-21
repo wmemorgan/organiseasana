@@ -87,7 +87,8 @@ function createTask($workspaceId, $task, $customFieldMapping = null) {
     // Validate task data
     $task = cleanTask($task);
 
-    remapCustomFields($task, $customFieldMapping);
+    $newFields = remapCustomFields($task, $customFieldMapping);
+    unset($task['custom_fields']);
     
     // Create new task
     $data = array('data' => $task);
@@ -117,6 +118,10 @@ function createTask($workspaceId, $task, $customFieldMapping = null) {
     } else {
         pre($result, "Error creating task", 'danger');
         return null;
+    }
+
+    if ($newFields && $customFieldMapping) {
+        $newTask["custom_fields"] = $newFields;
     }
 
     return $newTask;
