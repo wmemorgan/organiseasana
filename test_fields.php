@@ -33,7 +33,7 @@ $workspaceId = $_GET['workspaceId'];
             $workspaceFields = getAllCustomFields($workspaceId);
             $fieldMap = array();
             foreach ($workspaceFields as $field) {
-                $fieldMap[$field["id"]] = $field;
+                $fieldMap[$field["name"]] = $field;
             }
 
             $projectFieldMapping = array();
@@ -62,7 +62,7 @@ $workspaceId = $_GET['workspaceId'];
 						</td>
 						<td>
 							<?php 
-                    $workspaceField = $fieldMap[$customField["id"]];
+                    $workspaceField = $fieldMap[$customField["name"]];
                     if ($workspaceField) {
                         if ($workspaceField["type"] == $customField["type"]) {
                             if ($customField["type"] == "enum") {

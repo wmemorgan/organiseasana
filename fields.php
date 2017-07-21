@@ -136,13 +136,13 @@ function mapCustomFields($projectIds, $workspaceId, &$invalid) {
 
     $targetFields = array();
     foreach ($workspaceFields as $field) {
-        $targetFields[$field["id"]] = $field;
+        $targetFields[$field["name"]] = $field;
     }
     $fieldMapping = array();
         
     foreach ($sourceFields as $sourceField) {
         $customField = $sourceField["custom_field"];
-        $workspaceField = $targetFields[$customField["id"]];
+        $workspaceField = $targetFields[$customField["name"]];
         if ($workspaceField) {
             if ($workspaceField["type"] == $customField["type"]) {
                 if ($customField["type"] == "enum") {
