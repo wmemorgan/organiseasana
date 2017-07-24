@@ -16,12 +16,14 @@
     $targetWorkspaceId = $_POST['workspaceId'];
     $depth = $_POST['depth'];
     $copyTags = $_POST['copyTags'];
+    $copyAttachments = $_POST['copyAttachments'];
     $customFieldMapping = postDefault('customFieldMapping');
+    $projectId = postDefault('projectId');
 
     if ($subtask) {
         progress("Copying subtask content for '" . $subtask['name'] . "'");
     } else {
         progress('Copying subtask content for ' . $subtaskId);
     }
-    copySubtask($subtaskId, $newSubId, $targetWorkspaceId, $depth, $copyTags, $copyAttachments, $customFieldMapping);
+    copySubtask($subtaskId, $newSubId, $targetWorkspaceId, $depth, $copyTags, $copyAttachments, $customFieldMapping, $projectId);
     flushProgress();

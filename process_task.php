@@ -14,8 +14,10 @@
     $taskId = $_POST['taskId'];
     $newTask = $_POST['newTask'];
     $copyTags = $_POST['copyTags'];
+    $copyAttachments = $_POST['copyAttachments'];
     $customFieldMapping = postDefault('customFieldMapping');
+    $projectId = postDefault('projectId');
 
     progress("Copy content for '" . $newTask['name'] . "'");
-    copyTask($targetWorkspaceId, $taskId, $newTask, $copyTags, $copyAttachments, $customFieldMapping);
+    copyTask($targetWorkspaceId, $taskId, $newTask, $copyTags, $copyAttachments, $customFieldMapping, $projectId);
     flushProgress();

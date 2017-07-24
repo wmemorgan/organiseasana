@@ -233,7 +233,7 @@ function setCustomFields($taskId, $newFields) {
     if (!$newFields || !count($newFields)) {
         return;
     }
-
+    
     $result = asanaRequest("tasks/$taskId", "PUT", array("data" => array("custom_fields" => $newFields)));
     if (isError($result)) {
         pre($result, "Error setting custom fields", 'danger');

@@ -1,6 +1,6 @@
 <?php
 
-function queueTask($targetWorkspaceId, $taskId, $newTask, $copyTags = true, $copyAttachments = true, $customFieldMapping = null) {
+function queueTask($targetWorkspaceId, $taskId, $newTask, $copyTags, $copyAttachments, $customFieldMapping, $projectId) {
     global $channel;
     global $authToken;
     global $DEBUG;
@@ -16,13 +16,16 @@ function queueTask($targetWorkspaceId, $taskId, $newTask, $copyTags = true, $cop
         'taskId' => $taskId,
         'newTask' => $newTask,
         'debug' => $DEBUG,
-        'copyTags' => $copyTags
+        'copyTags' => $copyTags,
+        'copyAttachments' => $copyAttachments,
+        'customFieldMapping' => $customFieldMapping,
+        'projectId' => $projectId
     ];
     $job = new \google\appengine\api\taskqueue\PushTask('/process/task', $params);
     $task_name = $job->add();
 }
 
-function copyTask($targetWorkspaceId, $taskId, $newTask, $copyTags = true, $copyAttachments = true, $customFieldMapping = null) {
+function copyTask($targetWorkspaceId, $taskId, $newTask, $copyTags, $copyAttachments, $customFieldMapping, $projectId) {
     $newTaskId=$newTask['id'];
     copyHistory($taskId, $newTaskId);
     if ($copyAttachments) {
@@ -30,7 +33,7 @@ function copyTask($targetWorkspaceId, $taskId, $newTask, $copyTags = true, $copy
     }
 
     $depth = 0;
-    copySubtasks($taskId, $newTaskId, $depth, $targetWorkspaceId, $copyTags, $copyAttachments, $customFieldMapping);
+    copySubtasks($taskId, $newTaskId, $depth, $targetWorkspaceId, $copyTags, $copyAttachments, $customFieldMapping, $projectId);
 }
 
 function cleanTask($task) {
@@ -79,7 +82,7 @@ function addTaskToSection($task, $projectId, $sectionId) {
     $result = asanaRequest("tasks/$taskId/addProject", 'POST', $data);
 }
 
-function createTask($workspaceId, $task, $customFieldMapping = null) {
+function createTask($workspaceId, $task, $customFieldMapping, $projectId) {
     // Unset projects
     unset($task['projects']);
     unset($task['memberships']);
@@ -127,14 +130,14 @@ function createTask($workspaceId, $task, $customFieldMapping = null) {
     return $newTask;
 }
 
-function copySubtasks($taskId, $newTaskId, $depth, $targetWorkspaceId, $copyTags = true, $copyAttachments = true, $customFieldMapping = null) {
+function copySubtasks($taskId, $newTaskId, $depth, $targetWorkspaceId, $copyTags, $copyAttachments, $customFieldMapping, $projectId) {
     $depth++;
     if ($depth > 10) {
         return false;
     }
 
     // GET subtasks of task
-    $result = asanaRequest("tasks/$taskId/subtasks?opt_expand=assignee,assignee_status,completed,due_on,due_at,hearted,name,notes,memberships,tags");
+    $result = asanaRequest("tasks/$taskId/subtasks?opt_expand=assignee,assignee_status,completed,custom_fields,due_on,due_at,hearted,name,notes,memberships,tags");
     if (isError($result)) {
         pre($result, "Error getting subtasks", 'danger');
     }
@@ -150,10 +153,10 @@ function copySubtasks($taskId, $newTaskId, $depth, $targetWorkspaceId, $copyTags
             unset($subtask["id"]);
             unset($subtask["memberships"]);
 
-            // Remap custom fields
-            remapCustomFields($subtask, $customFieldMapping);
-            
             p(str_repeat("&nbsp;", $depth) . "Creating subtask: " . $subtask['name']);
+
+            // Remap custom fields
+            $newFields = remapCustomFields($subtask, $customFieldMapping);
             
             if (isset($subtask["assignee"])) {
                 $subtask["assignee"] = $subtask["assignee"]["id"];
@@ -165,31 +168,73 @@ function copySubtasks($taskId, $newTaskId, $depth, $targetWorkspaceId, $copyTags
             }
 
             // create Subtask
-            $data = array('data' => cleanTask($subtask));
-            $result = asanaRequest("tasks/$newTaskId/subtasks", 'POST', $data);
-            
-            // Try to remove assignee if an error is returned
-            // TODO check assignee exists before submitting the request
-            if (isError($result) && isset($subtask['assignee'])) {
-                unset($subtask['assignee']);
+            if ($newFields) {
+                error_log("Creating subtask as top-level task");
+                $subtask["projects"] = array($projectId);
+                $data = array('data' => cleanTask($subtask));
+                $result = asanaRequest("tasks", 'POST', $data);
+
+                // Try to remove assignee if an error is returned
+                // TODO check assignee exists before submitting the request
+                if (isError($result) && isset($subtask['assignee'])) {
+                    unset($subtask['assignee']);
+                    $data = array('data' => cleanTask($subtask));
+                    $result = asanaRequest("tasks", 'POST', $data);
+                }
+
+                if (isError($result)) {
+                    pre($result, "Failed to create subtask", 'danger');
+                    return;
+                }
+
+                $newsubtask = $result["data"];
+                $newSubId = $newsubtask['id'];
+
+                // Move to subtask
+                $data = array('data' => array('parent' => $newTaskId));
+                $result = asanaRequest("tasks/$newSubId/setParent", 'POST', $data);
+
+                if (isError($result)) {
+                    pre($result, "Failed to move subtask", 'danger');
+                    return;
+                }
+                
+                $data = array('data' => array('project' => $projectId));
+                $result = asanaRequest("tasks/$newSubId/removeProject", 'POST', $data);
+
+                if (isError($result)) {
+                    pre($result, "Failed to move subtask", 'danger');
+                    return;
+                }
+            } else {
+                error_log("Creating subtask directly");
+                unset($subtask['custom_fields']);
                 $data = array('data' => cleanTask($subtask));
                 $result = asanaRequest("tasks/$newTaskId/subtasks", 'POST', $data);
-            }
-
-            if (isError($result)) {
-                pre($result, "Failed to create subtask", 'danger');
-                return;
-            }
-
-            $newsubtask = $result["data"];
-            $newSubId = $newsubtask['id'];
             
-            queueSubtask($subtask, $subtaskId, $newSubId, $targetWorkspaceId, $depth, $copyTags, $copyAttachments, $customFieldMapping);
+                // Try to remove assignee if an error is returned
+                // TODO check assignee exists before submitting the request
+                if (isError($result) && isset($subtask['assignee'])) {
+                    unset($subtask['assignee']);
+                    $data = array('data' => cleanTask($subtask));
+                    $result = asanaRequest("tasks/$newTaskId/subtasks", 'POST', $data);
+                }
+
+                if (isError($result)) {
+                    pre($result, "Failed to create subtask", 'danger');
+                    return;
+                }
+
+                $newsubtask = $result["data"];
+                $newSubId = $newsubtask['id'];
+            }
+            
+            queueSubtask($subtask, $subtaskId, $newSubId, $targetWorkspaceId, $depth, $copyTags, $copyAttachments, $customFieldMapping, $projectId);
         }
     }
 }
 
-function queueSubtask($subtask, $subtaskId, $newSubId, $targetWorkspaceId, $depth, $copyTags = true, $copyAttachments = true, $customFieldMapping = null) {
+function queueSubtask($subtask, $subtaskId, $newSubId, $targetWorkspaceId, $depth, $copyTags, $copyAttachments, $customFieldMapping, $projectId) {
     global $channel;
     global $authToken;
     global $DEBUG;
@@ -209,19 +254,21 @@ function queueSubtask($subtask, $subtaskId, $newSubId, $targetWorkspaceId, $dept
         'copyTags' => $copyTags,
         'copyAttachments' => $copyAttachments,
         'customFieldMapping' => $customFieldMapping,
+        'projectId' => $projectId,
         'debug' => $DEBUG
     ];
+
     $job = new \google\appengine\api\taskqueue\PushTask('/process/subtask', $params);
     $task_name = $job->add();
 }
 
-function copySubtask($subtaskId, $newSubId, $targetWorkspaceId, $depth, $copyTags = true, $copyAttachments = true, $customFieldMapping = null) {
+function copySubtask($subtaskId, $newSubId, $targetWorkspaceId, $depth, $copyTags, $copyAttachments, $customFieldMapping, $projectId) {
     copyHistory($subtaskId, $newSubId);
     if ($copyAttachments) {
         copyAttachments($subtaskId, $newSubId, $targetWorkspaceId);
     }
 
-    copySubtasks($subtaskId, $newSubId, $depth, $targetWorkspaceId, $copyTags, $copyAttachments, $customFieldMapping);
+    copySubtasks($subtaskId, $newSubId, $depth, $targetWorkspaceId, $copyTags, $copyAttachments, $customFieldMapping, $projectId);
 }
 
 function getTasks($parentPath, &$cursor, $limit = 20, $lastTaskId = null) {

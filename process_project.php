@@ -219,7 +219,7 @@
                     setCustomFields($newTask["id"], $newTask["custom_fields"]);
                 }
                 
-                queueTask($targetWorkspaceId, $taskId, $newTask, $copyTags, $copyAttachments, $customFieldMapping);
+                queueTask($targetWorkspaceId, $taskId, $newTask, $copyTags, $copyAttachments, $customFieldMapping, $targetProjectId);
             }
 
             // Do we have more task pages?
