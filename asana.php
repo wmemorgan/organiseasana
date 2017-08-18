@@ -275,6 +275,13 @@ function error($body, $title, $style) {
     }
 }
 
+function fatal($body, $title) {
+    global $channel;
+    cancel($channel);
+
+    error($body, "Job aborted: " + $title, 'danger');
+}
+
 function p($text) {
     progress($text);
 }

@@ -290,8 +290,11 @@ include "header.php";
                     print '<div class="bs-callout bs-callout-warning">';
                     print '<h4>Invalid custom field mapping</h4>';
                     print '<ul><li>';
-                    print(implode("</li><li>", $invalidFieldMapping));
+                    print(implode("</li><li>", array_slice($invalidFieldMapping, 0, 5)));
                     print "</li></ul>";
+                    if (sizeof($invalidFieldMapping) > 5) {
+                        print "<p>".(sizeof($invalidFieldMapping) - 5) ." more mapping problems</p>";
+                    }
                     print '<a target="_blank" href="/debug/fields?projectIds=' . implode(',', $projects) . '&workspaceId=' . $targetWorkspaceId .'">Debug field mapping</a>';
                     print "</div>\n";
                 } elseif ($customFieldMapping) {

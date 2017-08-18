@@ -82,7 +82,7 @@ function addTaskToSection($task, $projectId, $sectionId) {
     $result = asanaRequest("tasks/$taskId/addProject", 'POST', $data);
 }
 
-function createTask($workspaceId, $task, $customFieldMapping, $projectId) {
+function createTask($workspaceId, $task, $customFieldMapping) {
     // Unset projects
     unset($task['projects']);
     unset($task['memberships']);

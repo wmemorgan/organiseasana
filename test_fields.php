@@ -10,6 +10,16 @@ $workspaceId = $_GET['workspaceId'];
 		th {
 			text-align: left;
 		}
+		
+		del {
+			color: red;
+			text-decoration: none;
+		}
+		
+		ins {
+			color: rgb(0, 200, 0);
+			text-decoration: none;
+		}
 	</style>
 	<form>
 		<p>
@@ -23,24 +33,32 @@ $workspaceId = $_GET['workspaceId'];
 
 	<?php
 
-    if ($projectIds) {
-        $projectId = $projectIds[0];
-        $project = getProject($projectId);
-        echo "<p>Project <strong>".$project['name']."</strong> is part of Workspace <strong>".$project['workspace']['name']."</strong></p>";
-        $workspace1 = $project['workspace']['id'];
-        
-        if ($workspaceId) {
-            $workspaceFields = getAllCustomFields($workspaceId);
-            $fieldMap = array();
-            foreach ($workspaceFields as $field) {
-                $fieldMap[$field["name"]] = $field;
+    if ($workspaceId) {
+        $workspace = getWorkspace($workspaceId);
+        echo '<h1>Destination workspace: '.$workspace['name'].'</h1>';
+        $workspaceFields = getAllCustomFields($workspaceId);
+        $fieldMap = array();
+        foreach ($workspaceFields as $field) {
+            $fieldName = $field["name"];
+            if (isset($fieldMap[$fieldName])) {
+                echo "<p><del>Duplicate field found: $fieldName</del></p>";
             }
+            $fieldMap[$fieldName] = $field;
+        }
 
-            $projectFieldMapping = array();
-        } ?>
+        echo "<p>Found " . sizeof($fieldMap) . " fields</p>";
+    }
+
+    $projectFieldMapping = array();
+    if ($projectIds) {
+        foreach ($projectIds as $projectId) {
+            $project = getProject($projectId);
+            echo "<h1>".$project['name']."</h1>";
+            echo "<p>Workspace <strong>".$project['workspace']['name']."</strong></p>";
+            $workspace1 = $project['workspace']['id']; ?>
 
 		<h2>Custom fields</h2>
-		<table cellpadding="5">
+		<table cellpadding="5" border="1">
 			<thead>
 				<tr>
 					<th style="width: 20%;">Source project</th>
@@ -59,44 +77,59 @@ $workspaceId = $_GET['workspaceId'];
 						<td>
 							<?php echo $customField["name"]?> (
 							<?php echo $customField["type"]?> )
+							<br><small><?php echo $customField["id"]?></small>
 						</td>
 						<td>
 							<?php 
                     $workspaceField = $fieldMap[$customField["name"]];
                     if ($workspaceField) {
+                        $targetFieldId = $workspaceField["id"];
                         if ($workspaceField["type"] == $customField["type"]) {
                             if ($customField["type"] == "enum") {
                                 $optionMap = array();
                                 foreach ($workspaceField["enum_options"] as $option) {
-                                    $optionMap[$option["name"]] = $option;
+                                    if (!$option['enabled']) {
+                                        continue;
+                                    }
+                                    $optionName = $option["name"];
+                                    if (isset($optionMap[$optionName])) {
+                                        echo "<p><del>Duplicate field option found: $optionName</del></p>";
+                                    }
+                                    $optionMap[$optionName] = $option;
                                 }
                                 $fieldOptionMapping = array();
 
                                 $allMatch = true;
                                 foreach ($customField["enum_options"] as $option) {
-                                    $targetOption = $optionMap[$option["name"]];
+                                    $optionName = $option["name"];
+                                    $optionId = $option["id"];
+
+                                    $targetOption = $optionMap[$optionName];
                                     if ($targetOption) {
-                                        $fieldOptionMapping[$option["id"]] = $targetOption["id"];
-                                        continue;
+                                        $targetOptionId = $targetOption["id"];
+                                        $fieldOptionMapping[$optionId] = $targetOptionId;
+                                        echo "<div>$optionName option <ins>matched</ins> &nbsp;&nbsp;&nbsp;&nbsp;<small>($optionId => $targetOptionId)</small></div>";
+                                    } else {
+                                        echo "<div>$optionName option <del>missing from target enum</del> &nbsp;&nbsp;&nbsp;&nbsp;<small>($optionId => ?)</small></div>";
+                                        $allMatch = false;
                                     }
-                                    echo "<div>".$option["name"]." option missing from target enum</div>";
-                                    $allMatch = false;
                                 }
                                 if ($allMatch) {
-                                    echo "Matches all enum options";
+                                    echo "<p><ins>Matches all enum options</ins></p>";
                                 } else {
-                                    echo "Available options:<br>". implode(", ", array_keys($optionMap));
+                                    echo "<p><strong>Available options:</strong></p><ul><li>". implode("</li><li>", array_keys($optionMap)) . '</li></ul>';
                                 }
-                                $projectFieldMapping[$customField["id"]] = array("id" => $workspaceField["id"], "options" => $fieldOptionMapping);
+                                $projectFieldMapping[$customField["id"]] = array("id" => $targetFieldId, "options" => $fieldOptionMapping);
                             } else {
-                                echo "Matches target field type";
-                                $projectFieldMapping[$customField["id"]] = array("id" => $workspaceField["id"]);
+                                echo "<ins>Matches target field type</ins>";
+                                $projectFieldMapping[$customField["id"]] = array("id" => $targetFieldId);
                             }
                         } else {
-                            echo "Found field, but type does not match";
+                            echo "Found field, but <del>type does not match</del>";
                         }
+                        echo " &nbsp;&nbsp;&nbsp;&nbsp;<small>($targetFieldId)</small>";
                     } else {
-                        echo "Not matched";
+                        echo "<del>Not matched</del>";
                     } ?>
 						</td>
 					</tr>
@@ -106,6 +139,7 @@ $workspaceId = $_GET['workspaceId'];
 			</tbody>
 		</table>
 		<?php
+        }
     }
 
     echo '<h2>Field mapping</h2>';

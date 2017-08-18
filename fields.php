@@ -129,52 +129,67 @@ function mapCustomFields($projectIds, $workspaceId, &$invalid) {
         return null;
     }
 
-    // Get source project custom fields
-    $sourceFields = getAllCustomFieldSettings($projectIds);
+    // Get the custom fields which need mapping
+    $sourceFieldAssociations = getAllCustomFieldSettings($projectIds);
     $workspaceFields = getAllCustomFields($workspaceId);
-    $invalid = array();
 
+    // Index target fields by name
     $targetFields = array();
     foreach ($workspaceFields as $field) {
         $targetFields[$field["name"]] = $field;
     }
+    
+    // Locate the correct target field for each source field
     $fieldMapping = array();
-        
-    foreach ($sourceFields as $sourceField) {
-        $customField = $sourceField["custom_field"];
-        $workspaceField = $targetFields[$customField["name"]];
-        if ($workspaceField) {
-            if ($workspaceField["type"] == $customField["type"]) {
-                if ($customField["type"] == "enum") {
-                    $optionMap = array();
-                    foreach ($workspaceField["enum_options"] as $option) {
-                        $optionMap[$option["name"]] = $option;
-                    }
-                    $fieldOptionMapping = array();
+    $invalid = array();
+    foreach ($sourceFieldAssociations as $sourceFieldAssociation) {
+        // The source field type of each project field association
+        $sourceField = $sourceFieldAssociation["custom_field"];
+        $targetField = $targetFields[$sourceField["name"]];
 
-                    $allMatch = true;
-                    foreach ($customField["enum_options"] as $option) {
-                        $targetOption = $optionMap[$option["name"]];
-                        if ($targetOption) {
-                            $fieldOptionMapping[$option["id"]] = $targetOption["id"];
-                            continue;
+        if ($targetField) {
+            // Source and target must have the same field type
+            if ($targetField["type"] == $sourceField["type"]) {
+
+                // Enums
+                if ($sourceField["type"] == "enum") {
+
+                    // Index target enum options by name
+                    $optionMap = array();
+                    foreach ($targetField["enum_options"] as $option) {
+                        if ($option["enabled"]) {
+                            $optionMap[$option["name"]] = $option;
                         }
-                        $invalid[] = $option["name"]." option missing from target enum " + $customField["name"];
-                        $allMatch = false;
+                    }
+
+                    // Find corresponding enum option for each source option
+                    $fieldOptionMapping = array();
+                    $allMatch = true;
+                    foreach ($sourceField["enum_options"] as $sourceOption) {
+                        $targetOption = $optionMap[$sourceOption["name"]];
+                        if ($targetOption) {
+                            $fieldOptionMapping[$sourceOption["id"]] = $targetOption["id"];
+                        } else {
+                            $invalid[] = $sourceOption["name"]." option missing from target enum " . $targetField["name"];
+                            $allMatch = false;
+                        }
                     }
                     if (!$allMatch) {
                         $invalid[] = "Available options: ". implode(", ", array_keys($optionMap));
                     }
-                    $fieldMapping[$customField["id"]] = array("id" => $workspaceField["id"], "options" => $fieldOptionMapping);
-                } else {
-                    $fieldMapping[$customField["id"]] = array("id" => $workspaceField["id"]);
+                    $fieldMapping[$sourceField["id"]] = array("id" => $targetField["id"], "options" => $fieldOptionMapping);
+                }
+                
+                // Other field types
+                else {
+                    $fieldMapping[$sourceField["id"]] = array("id" => $targetField["id"]);
                 }
             } else {
-                $invalid[] = "Found field ".$customField["name"]." with type " . $workspaceField["type"]
-                    . ", but should be ".$customField["type"];
+                $invalid[] = "Found field ".$sourceField["name"]." with type " . $targetField["type"]
+                    . ", but should be ".$sourceField["type"];
             }
         } else {
-            $invalid[] = "Did not match field ".$customField["name"];
+            $invalid[] = "Did not match field ".$sourceField["name"];
         }
     }
 
@@ -200,28 +215,44 @@ function addProjectFields($sourceProject, $targetProjectId, $customFieldMapping)
 }
 
 function remapCustomFields(&$task, $customFieldMapping) {
+    // If we have no fields in the target workspace, we can't assign them
     if (!$customFieldMapping) {
         unset($task["custom_fields"]);
         return;
     }
 
+    // Examine each custom field value and find mapped equivalent
     $newFields = array();
-    foreach ($task["custom_fields"] as $field) {
-        $targetFieldMapping = $customFieldMapping[$field["id"]];
+    foreach ($task["custom_fields"] as $sourceFieldValue) {
+        $targetFieldMapping = $customFieldMapping[$sourceFieldValue["id"]];
         if (!$targetFieldMapping) {
             continue;
         }
 
         $targetFieldId = $targetFieldMapping["id"];
-        if ($field["type"] == "enum" && $field["enum_value"]) {
-            $targetValue = $targetFieldMapping["options"][$field["enum_value"]["id"]];
+        $sourceType = $sourceFieldValue["type"];
+        // Mapping depends on type of field
+        if ($sourceType == "enum") {
+            // Check if this field has a value set
+            $enumValue = $sourceFieldValue["enum_value"];
+            if (!$enumValue) {
+                continue;
+            }
+
+            // Find the target mapping for this enum value
+            $targetValue = $targetFieldMapping["options"][$enumValue["id"]];
             if ($targetValue) {
                 $newFields[$targetFieldId] = $targetValue;
+            } else {
+                pre(array(
+                    sourceFieldValue => $sourceFieldValue,
+                    targetFieldMapping => $targetFieldMapping
+                    ), "Unable to map enum value");
             }
-        } elseif ($field["type"] == "number") {
-            $newFields[$targetFieldId] = $field["number_value"];
-        } elseif ($field["type"] == "text") {
-            $newFields[$targetFieldId] = $field["text_value"];
+        } elseif ($sourceType == "number") {
+            $newFields[$targetFieldId] = $sourceFieldValue["number_value"];
+        } elseif ($sourceType == "text") {
+            $newFields[$targetFieldId] = $sourceFieldValue["text_value"];
         }
     }
 

@@ -201,7 +201,7 @@
                         unset($newTask[$key]);
                     }
                 }
-                if ($copyTags && $newTask['tags']) {
+                if ($copyTags && isset($newTask['tags'])) {
                     $newTask['tags'] = getTargetTags($newTask, $targetWorkspaceId);
                 } else {
                     unset($newTask['tags']);
@@ -216,7 +216,15 @@
                 }
 
                 if ($customFieldMapping && $newTask["custom_fields"]) {
-                    setCustomFields($newTask["id"], $newTask["custom_fields"]);
+                    try {
+                        setCustomFields($newTask["id"], $newTask["custom_fields"]);
+                    } catch (Exception $e) {
+                        $report = array(
+                            task => $newTask,
+                            customFieldMapping => $customFieldMapping
+                        );
+                        fatal($report, "Unable to set custom fields");
+                    }
                 }
                 
                 queueTask($targetWorkspaceId, $taskId, $newTask, $copyTags, $copyAttachments, $customFieldMapping, $targetProjectId);
