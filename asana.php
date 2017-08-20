@@ -60,8 +60,14 @@ function asanaRequest($methodPath, $httpMethod = 'GET', $body = null, $cached = 
             }
         }
 
+        $start = microtime(true);
         $data = curl_exec($ch);
         $error = curl_error($ch);
+        $elapsed = microtime(true) - $start;
+        if ($elapsed > 0.7) {
+            logMessage("Slow request to Asana ($elapsed sec): $url");
+        }
+
         $result = parseAsanaResponse($data);
 
         if (isset($result['retry_after'])) {
@@ -232,7 +238,17 @@ function progress($text) {
     global $messages;
 
     $messages[] = $text;
-    error_log($text);
+    logMessage($text);
+}
+
+function logMessage($text) {
+    global $pusher;
+
+    if ($pusher) {
+        print $text;
+    } else {
+        error_log($text);
+    }
 }
 
 function flushProgress() {
@@ -255,7 +271,7 @@ function error($body, $title, $style) {
     flushProgress();
     if ($pusher) {
         $error = array('error' => $title, 'api_response' => $body);
-        error_log(print_r($error, true));
+        print_r($error, true);
         $pusher->trigger($channel, 'error', $error);
         if (strcmp($style, 'danger') == 0) {
             throw new Exception(json_encode($error, JSON_PRETTY_PRINT));
