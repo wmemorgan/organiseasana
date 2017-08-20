@@ -166,6 +166,9 @@ function mapCustomFields($projectIds, $workspaceId, &$invalid) {
                     $fieldOptionMapping = array();
                     $allMatch = true;
                     foreach ($sourceField["enum_options"] as $sourceOption) {
+                        if (!$sourceOption['enabled']) {
+                            continue;
+                        }
                         $targetOption = $optionMap[$sourceOption["name"]];
                         if ($targetOption) {
                             $fieldOptionMapping[$sourceOption["id"]] = $targetOption["id"];
@@ -241,14 +244,10 @@ function remapCustomFields(&$task, $customFieldMapping) {
 
             // Find the target mapping for this enum value
             $targetValue = $targetFieldMapping["options"][$enumValue["id"]];
-            if ($targetValue) {
-                $newFields[$targetFieldId] = $targetValue;
-            } else {
-                pre(array(
-                    sourceFieldValue => $sourceFieldValue,
-                    targetFieldMapping => $targetFieldMapping
-                    ), "Unable to map enum value");
+            if (!$targetValue) {
+                continue;
             }
+            $newFields[$targetFieldId] = $targetValue;
         } elseif ($sourceType == "number") {
             $newFields[$targetFieldId] = $sourceFieldValue["number_value"];
         } elseif ($sourceType == "text") {

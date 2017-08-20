@@ -101,6 +101,9 @@ $workspaceId = $_GET['workspaceId'];
 
                                 $allMatch = true;
                                 foreach ($customField["enum_options"] as $option) {
+                                    if (!$option['enabled']) {
+                                        continue;
+                                    }
                                     $optionName = $option["name"];
                                     $optionId = $option["id"];
 
