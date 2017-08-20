@@ -139,7 +139,7 @@
                 // Get sections
                 incrementRequests(1);
                 $nextSectionPage = $sectionPage;
-                $sections = getSections($fromProjectId, $nextSectionPage, 100);
+                $sections = getSections($fromProjectId, $nextSectionPage, 10);
 
                 // Select current section
                 $section = $sections[$sectionOffset];
@@ -155,12 +155,12 @@
                 // Get section tasks
                 incrementRequests(1);
                 $nextTaskPage = $taskPage;
-                $tasks = getSectionTasks($sectionId, $nextTaskPage, 100, $lastTaskId);
+                $tasks = getSectionTasks($sectionId, $nextTaskPage, 10, $lastTaskId);
             } else {
                 // Get Project tasks
                 incrementRequests(1);
                 $nextTaskPage = $taskPage;
-                $tasks = getProjectTasks($fromProjectId, $nextTaskPage, 100, $lastTaskId);
+                $tasks = getProjectTasks($fromProjectId, $nextTaskPage, 10, $lastTaskId);
             }
 
             // copy Tasks
