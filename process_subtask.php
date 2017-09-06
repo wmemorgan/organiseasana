@@ -1,27 +1,29 @@
 <?php 
-	/*
-	 * On app engine, processes a task queue
-	 */
+    /*
+     * On app engine, processes a task queue
+     */
 
-	include "init.php";
-	include "asana.php";
+    include "init.php";
+    include "asana.php";
 
-	if (isCancelled($channel)) {
-		return;
-	}
+    if (isCancelled($channel)) {
+        return;
+    }
 
-	$subtask = $_POST['subtask'];
-	$subtaskId = $_POST['subtaskId'];
-	$newSubId = $_POST['newSubId'];
-	$targetWorkspaceId = $_POST['workspaceId'];
-	$depth = $_POST['depth'];
-	$copyTags = $_POST['copyTags'];
+    $subtask = $_POST['subtask'];
+    $subtaskId = $_POST['subtaskId'];
+    $newSubId = $_POST['newSubId'];
+    $targetWorkspaceId = $_POST['workspaceId'];
+    $depth = $_POST['depth'];
+    $copyTags = $_POST['copyTags'];
+    $copyAttachments = $_POST['copyAttachments'];
+    $customFieldMapping = postDefault('customFieldMapping');
+    $projectId = postDefault('projectId');
 
-	if ($subtask) {
-		progress("Copying subtask content for '" . $subtask['name'] . "'");
-	} else {
-		progress('Copying subtask content for ' . $subtaskId);
-	}
-	copySubtask($subtaskId, $newSubId, $targetWorkspaceId, $depth, $copyTags);
-	flushProgress();
-?>
+    if ($subtask) {
+        progress("Copying subtask content for '" . $subtask['name'] . "'");
+    } else {
+        progress('Copying subtask content for ' . $subtaskId);
+    }
+    copySubtask($subtaskId, $newSubId, $targetWorkspaceId, $depth, $copyTags, $copyAttachments, $customFieldMapping, $projectId);
+    flushProgress();
