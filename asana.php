@@ -283,7 +283,7 @@ function error($body, $title, $style) {
         }
         if ($body) {
             print "<pre>";
-            print(json_encode($body, JSON_PRETTY_PRINT));
+            print(htmlspecialchars(json_encode($body, JSON_PRETTY_PRINT)));
             print "</pre>";
         }
         print "</div>\n";

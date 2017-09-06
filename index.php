@@ -143,11 +143,11 @@ if ($DEBUG >= 1) {
 		<?php 
     print "<h4>Parameters</h4>";
         print "<pre>";
-        print(json_encode(array(
-        "DEBUG" => $DEBUG,
-        "channel" => $channel,
-        "authToken" => $authToken
-        ), JSON_PRETTY_PRINT));
+        print(htmlspecialchars(json_encode(array(
+            "DEBUG" => $DEBUG,
+            "channel" => $channel,
+            "authToken" => $authToken
+        ), JSON_PRETTY_PRINT)));
         print "</pre>\n";
         flush(); ?>
 	</div>
@@ -190,7 +190,7 @@ include "header.php";
             if ($workspace['id'] == $workspaceId) {
                 $active = ' active';
             }
-            echo '<button class="btn btn-default' . $active . '" type="submit" name="new_workspace" value="' . $workspace['id'] . '">' . $workspace['name'] . '</button>';
+            echo '<button class="btn btn-default' . $active . '" type="submit" name="new_workspace" value="' . $workspace['id'] . '">' . htmlspecialchars($workspace['name']) . '</button>';
         }
         echo '</div>';
 
@@ -223,7 +223,7 @@ include "header.php";
                 }
 
                 echo '<label class="btn btn-default' . $active . '"><input type="checkbox" name="projects[]" value="'
-                        . $project['id'] . '"' . $checked . '> ' . $project['name'] . '</label>';
+                        . $project['id'] . '"' . $checked . '> ' . htmlspecialchars($project['name']) . '</label>';
             }
             echo '</div>';
 
@@ -289,9 +289,12 @@ include "header.php";
                 if ($invalidFieldMapping) {
                     print '<div class="bs-callout bs-callout-warning">';
                     print '<h4>Invalid custom field mapping</h4>';
-                    print '<ul><li>';
-                    print(implode("</li><li>", array_slice($invalidFieldMapping, 0, 5)));
-                    print "</li></ul>";
+                    print '<ul>';
+                    $slice = array_slice($invalidFieldMapping, 0, 5);
+                    for ($i = 0; $i < count($slice); $i++) {
+                        print '<li>' . htmlspecialchars($slice[$i]) . '</li>';
+                    }
+                    print "</ul>";
                     if (sizeof($invalidFieldMapping) > 5) {
                         print "<p>".(sizeof($invalidFieldMapping) - 5) ." more mapping problems</p>";
                     }
@@ -316,7 +319,7 @@ include "header.php";
                     for ($i = count($teams) - 1; $i >= 0; $i--) {
                         $team = $teams[$i];
 
-                        echo '<button class="btn btn-default'. ($team['id'] == $teamId ? " active" : "").'" type="submit" name="team" value="' . $team['id'] . '">' . $team['name'] . '</button>';
+                        echo '<button class="btn btn-default'. ($team['id'] == $teamId ? " active" : "").'" type="submit" name="team" value="' . $team['id'] . '">' . htmlspecialchars($team['name']) . '</button>';
                     }
                     echo '</div>';
 
