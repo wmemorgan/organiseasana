@@ -35,13 +35,13 @@ $workspaceId = $_GET['workspaceId'];
 
     if ($workspaceId) {
         $workspace = getWorkspace($workspaceId);
-        echo '<h1>Destination workspace: '.$workspace['name'].'</h1>';
+        echo '<h1>Destination workspace: '.htmlspecialchars($workspace['name']).'</h1>';
         $workspaceFields = getAllCustomFields($workspaceId);
         $fieldMap = array();
         foreach ($workspaceFields as $field) {
             $fieldName = $field["name"];
             if (isset($fieldMap[$fieldName])) {
-                echo "<p><del>Duplicate field found: $fieldName</del></p>";
+                echo "<p><del>Duplicate field found: ".htmlspecialchars($fieldName)."</del></p>";
             }
             $fieldMap[$fieldName] = $field;
         }
@@ -53,8 +53,8 @@ $workspaceId = $_GET['workspaceId'];
     if ($projectIds) {
         foreach ($projectIds as $projectId) {
             $project = getProject($projectId);
-            echo "<h1>".$project['name']."</h1>";
-            echo "<p>Workspace <strong>".$project['workspace']['name']."</strong></p>";
+            echo "<h1>".htmlspecialchars($project['name'])."</h1>";
+            echo "<p>Workspace <strong>".htmlspecialchars($project['workspace']['name'])."</strong></p>";
             $workspace1 = $project['workspace']['id']; ?>
 
 		<h2>Custom fields</h2>
@@ -75,8 +75,8 @@ $workspaceId = $_GET['workspaceId'];
 
 					<tr>
 						<td>
-							<?php echo $customField["name"]?> (
-							<?php echo $customField["type"]?> )
+							<?php echo htmlspecialchars($customField["name"])?> (
+							<?php echo htmlspecialchars($customField["type"])?> )
 							<br><small><?php echo $customField["id"]?></small>
 						</td>
 						<td>
@@ -93,7 +93,7 @@ $workspaceId = $_GET['workspaceId'];
                                     }
                                     $optionName = $option["name"];
                                     if (isset($optionMap[$optionName])) {
-                                        echo "<p><del>Duplicate field option found: $optionName</del></p>";
+                                        echo "<p><del>Duplicate field option found: ".htmlspecialchars($optionName)."</del></p>";
                                     }
                                     $optionMap[$optionName] = $option;
                                 }
@@ -111,9 +111,9 @@ $workspaceId = $_GET['workspaceId'];
                                     if ($targetOption) {
                                         $targetOptionId = $targetOption["id"];
                                         $fieldOptionMapping[$optionId] = $targetOptionId;
-                                        echo "<div>$optionName option <ins>matched</ins> &nbsp;&nbsp;&nbsp;&nbsp;<small>($optionId => $targetOptionId)</small></div>";
+                                        echo "<div>".htmlspecialchars($optionName)." option <ins>matched</ins> &nbsp;&nbsp;&nbsp;&nbsp;<small>($optionId => $targetOptionId)</small></div>";
                                     } else {
-                                        echo "<div>$optionName option <del>missing from target enum</del> &nbsp;&nbsp;&nbsp;&nbsp;<small>($optionId => ?)</small></div>";
+                                        echo "<div>".htmlspecialchars($optionName)." option <del>missing from target enum</del> &nbsp;&nbsp;&nbsp;&nbsp;<small>($optionId => ?)</small></div>";
                                         $allMatch = false;
                                     }
                                 }
@@ -146,5 +146,5 @@ $workspaceId = $_GET['workspaceId'];
     }
 
     echo '<h2>Field mapping</h2>';
-    echo '<pre>'.print_r($projectFieldMapping, true)."</pre>";
+    echo '<pre>'.htmlspecialchars(print_r($projectFieldMapping, true))."</pre>";
     ?>

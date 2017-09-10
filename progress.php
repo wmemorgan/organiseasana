@@ -42,13 +42,15 @@
 		for (i = 0; i < data.messages.length; i++) {
 			var message = data.messages[i];
 			$('#log').append(now + " (" + minutes + "m " + seconds + "s) - ");
-			$('#log').append(htmlspecialchars(message) + "<br>");
+			$("<span></span>").text(message).appendTo('#log');
+			$('#log').append('<br>');
 		}
 		$('#log').scrollTop(10000000);
 	});
 	channel.bind('created', function(project) {
-		$('#projects').append('<a class="btn btn-success btn-xs" target="asana" href="https://app.asana.com/0/' + project[
-			'id'] + '">' + htmlspecialchars(project['name']) + '</a> ');
+		$('<a class="btn btn-success btn-xs" target="asana" href="https://app.asana.com/0/' +
+			project['id'] + '"></a>').text(project['name']).appendTo('#projects');
+		$('#projects').append('<br>');
 	});
 	channel.bind('done', function(data) {
 		$('#projects').append("<hr>Done.");
@@ -56,8 +58,8 @@
 	});
 	channel.bind('error', function(data) {
 		var message = JSON.stringify(data.api_response, null, 2);
-		$('#log').append('<h2>' + htmlspecialchars(data.error) + '</h2><pre class="text-danger">' + htmlspecialchars(
-			message) + "</pre><br>");
+		$('<h2></h2>').text(data.error).appendTo('#log');
+		$('<pre class="text-danger"></pre>').text(message).appendTo('#log');
 		$('#log').scrollTop(10000000);
 	});
 

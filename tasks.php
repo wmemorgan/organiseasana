@@ -153,7 +153,7 @@ function copySubtasks($taskId, $newTaskId, $depth, $targetWorkspaceId, $copyTags
             unset($subtask["id"]);
             unset($subtask["memberships"]);
 
-            p(str_repeat("&nbsp;", $depth) . "Creating subtask: " . $subtask['name']);
+            p("Creating subtask: " . $subtask['name']);
 
             // Remap custom fields
             $newFields = remapCustomFields($subtask, $customFieldMapping);
