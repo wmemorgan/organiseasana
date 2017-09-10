@@ -180,7 +180,7 @@ include "header.php";
     }
 
     // Display copy options
-    elseif ($enabled && $authToken) {
+    elseif ($authToken) {
         echo '<h2>Browse workspace</h2>';
         echo '<div class="btn-group">';
         $workspaces = getWorkspaces();

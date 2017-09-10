@@ -69,33 +69,22 @@
 			Copy <a href="https://asana.com" target="asana">Asana</a> projects from one workspace to another.
 		</p>
 
-		<?php $enabled = true;
-
-            if (!$enabled) {
-                ?>
-		<div class="bs-callout bs-callout-warning">
-			<h4>14th October 2016 - Service Delays</h4>
-			<p>There is currently a large backlog of tasks in the queue (the oldest tasks waiting are about 5 hours old). This may be
-				due to high latency communicating with Asana, or just a lot of people trying or retrying their copy operations.</p>
-			<p>To let the backlog clear I've turned up the rate of task processing and temporarily disabled new jobs - sorry for the
-				inconvenience. I should be able to turn it back on tomorrow.</p>
-		</div>
-		<?php
-            }?>
-
-			<h3>Updates</h3>
-			<ul>
-				<li>
-					<b>21st Feb 2017:</b> Copying large projects now works more reliably.
-				</li>
-				<li>
-					<b>1st March 2017:</b> Bug fix for task description not being copied.
-				</li>
-				<li>
-					<b>9th March 2017:</b> Bug fix for duplicate tasks being copied, and errors when copying projects with tags to a personal
-					workspace.
-				</li>
-				<li>
-					<b>30th June 2017:</b> Added support for board-style projects.
-				</li>
-			</ul>
+		<h3>Updates</h3>
+		<ul>
+			<li>
+				<b>21st Feb 2017:</b> Copying large projects now works more reliably.
+			</li>
+			<li>
+				<b>1st March 2017:</b> Bug fix for task description not being copied.
+			</li>
+			<li>
+				<b>9th March 2017:</b> Bug fix for duplicate tasks being copied, and errors when copying projects with tags to a personal
+				workspace.
+			</li>
+			<li>
+				<b>30th June 2017:</b> Added support for board-style projects.
+			</li>
+			<li>
+				<b>20th August 2017:</b> Added support for custom fields. Made possible by generous support from <a href="http://www.gauge.com.br/">Gauge&deg;</a>
+			</li>
+		</ul>
