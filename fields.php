@@ -128,10 +128,21 @@ function mapCustomFields($projectIds, $workspaceId, &$invalid) {
     if (!$workspaceId) {
         return null;
     }
+    
+    $fieldMapping = array();
+    $invalid = array();
 
     // Get the custom fields which need mapping
     $sourceFieldAssociations = getAllCustomFieldSettings($projectIds);
+    $numFields = sizeof($sourceFieldAssociations);
+    if ($numFields == 0) {
+        return null;
+    }
     $workspaceFields = getAllCustomFields($workspaceId);
+    if (sizeof($workspaceFields) == 0) {
+        $invalid[] = "Target workspace has no custom fields, but source project has $numFields fields";
+        return null;
+    }
 
     // Index target fields by name
     $targetFields = array();
@@ -140,8 +151,6 @@ function mapCustomFields($projectIds, $workspaceId, &$invalid) {
     }
     
     // Locate the correct target field for each source field
-    $fieldMapping = array();
-    $invalid = array();
     foreach ($sourceFieldAssociations as $sourceFieldAssociation) {
         // The source field type of each project field association
         $sourceField = $sourceFieldAssociation["custom_field"];
