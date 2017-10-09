@@ -1,6 +1,18 @@
 <html>
 
 <head>
+	<!-- Global Site Tag (gtag.js) - Google Analytics -->
+	<script async src="https://www.googletagmanager.com/gtag/js?id=UA-40871968-3"></script>
+	<script>
+		window.dataLayer = window.dataLayer || [];
+
+		function gtag() {
+			dataLayer.push(arguments);
+		}
+		gtag('js', new Date());
+		gtag('config', '<?php echo $config["ga_ua"] ?>');
+	</script>
+
 	<title>Organise Asana Projects</title>
 	<script src="//code.jquery.com/jquery-1.11.0.min.js"></script>
 	<script src="/jquery.form.js"></script>

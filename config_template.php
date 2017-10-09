@@ -1,24 +1,24 @@
 <?php
-	global $config;
+    global $config;
 
-	$config = array(
-		'pusher_app_id' => "12345",
-		'pusher_key'    => "abcde",
-		'pusher_secret' => "fghij",
-	);
+    $config = array(
+        'pusher_app_id' => "12345",
+        'pusher_key'    => "abcde",
+        'pusher_secret' => "fghij",
+        'ga_ua'         => "UA-00000000-1"
+    );
 
-	$asana_app = array(
-		'localhost:8080' => array(
-			'key' => 'abc123',
-			'secret' => 'def456',
-			'redirect' => 'http://localhost:8080/auth',
-			'secure' => false
-		),
-		'asana.kothar.net' => array(
-			'key' => 'abc123',
-			'secret' => 'def456',
-			'redirect' => 'https://asana.kothar.net/auth',
-			'secure' => true
-		)
-	);
-?>
+    $asana_app = array(
+        'localhost:8080' => array(
+            'key' => 'abc123',
+            'secret' => 'def456',
+            'redirect' => 'http://localhost:8080/auth',
+            'secure' => false
+        ),
+        'asana.kothar.net' => array(
+            'key' => 'abc123',
+            'secret' => 'def456',
+            'redirect' => 'https://asana.kothar.net/auth',
+            'secure' => true
+        )
+    );
