@@ -86,6 +86,7 @@ function createTask($workspaceId, $task, $customFieldMapping) {
     // Unset projects
     unset($task['projects']);
     unset($task['memberships']);
+    unset($task['resource_type']);
 
     // Validate task data
     $task = cleanTask($task);
