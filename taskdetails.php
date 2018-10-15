@@ -65,6 +65,7 @@ function getTargetTags($task, $targetWorkspaceId) {
 			progress("Creating tag '$tagName' in target workspace");
 			unset($tag['created_at']);
 			unset($tag['followers']);
+            unset($tag['resource_type']);
 			$tag['workspace'] = $targetWorkspaceId;
 
 			$data = array('data' => $tag);
