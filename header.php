@@ -106,6 +106,8 @@
 					<li>
 						<b>10th May 2018:</b> Added simple usage instructions - thank you to everyone who's suggested this, it should have been
 						there from the start!</li>
+                    <li>
+						<b>15 October 2018:</b> Several bugs fixed preventing tasks and tags from being created.</li>
 				</ul>
 			</div>
 		</div>
